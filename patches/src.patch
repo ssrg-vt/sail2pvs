@@ -1,0 +1,584 @@
+diff -Naur ../lem/src/ast.ml ../lem_ext/src/ast.ml
+--- ../lem/src/ast.ml	2019-03-28 16:38:21.360828987 -0400
++++ ../lem_ext/src/ast.ml	2019-03-28 16:44:44.129779105 -0400
+@@ -269,6 +269,7 @@
+  | Target_isa of terminal
+  | Target_ocaml of terminal
+  | Target_coq of terminal
++ | Target_pvs of terminal
+  | Target_tex of terminal
+  | Target_html of terminal
+  | Target_lem of terminal
+diff -Naur ../lem/src/backend_common.ml ../lem_ext/src/backend_common.ml
+--- ../lem/src/backend_common.ml	2019-03-28 16:38:21.360828987 -0400
++++ ../lem_ext/src/backend_common.ml	2019-03-28 16:54:06.065483881 -0400
+@@ -253,6 +253,7 @@
+ let get_module_name_from_descr md mod_name extra_rename target = begin
+   let transform_name_for_target n = match target with
+     | Target.Target_no_ident (Target.Target_coq) -> Util.uncapitalize_prefix n
++    | Target.Target_no_ident (Target.Target_pvs) -> Util.uncapitalize_prefix n
+     | Target.Target_no_ident (Target.Target_hol) -> Util.string_map (fun c -> if c = '-' then  '_' else c) (Util.uncapitalize_prefix n)
+     | _ -> n
+   in
+diff -Naur ../lem/src/backend_common.mli ../lem_ext/src/backend_common.mli
+--- ../lem/src/backend_common.mli	2019-03-28 16:38:21.360828987 -0400
++++ ../lem_ext/src/backend_common.mli	2019-03-28 16:57:12.526853695 -0400
+@@ -115,6 +115,8 @@
+ 
+ val open_to_open_target : (Path.t id) list -> (lskips * string) list * lskips
+ 
++val ident_to_output : bool -> bool -> Ident.t -> Output.t
++
+ (** [function_application_to_output l exp inf full_exp c_id args] tries to format
+     a function application as output. It gets an expression [full_ex] of the from
+     [c arg1 ... argn]. The id [c_id] corresponds to constant [c]. The arguments [arg1, ... argn] are 
+@@ -148,6 +150,7 @@
+     constant should be used, if there is one. Depending on the formating rules for the
+     constant, [const_id_to_ident] might raise an exception. *)
+ val const_id_to_ident : const_descr_ref id -> bool -> Ident.t 
++val const_id_to_ident_aux : const_descr_ref id -> bool -> Ident.t option -> (bool * bool * Ident.t)
+ 
+ 
+ (** [const_ref_to_name n use_ascii c] tries to format a constant
+diff -Naur ../lem/src/backend.ml ../lem_ext/src/backend.ml
+--- ../lem/src/backend.ml	2019-03-28 16:38:21.360828987 -0400
++++ ../lem_ext/src/backend.ml	2019-03-28 16:58:20.405476973 -0400
+@@ -3990,6 +3990,10 @@
+     let module B = Coq_backend.CoqBackend (C) in
+       B.coq_defs defs
+ 
++  let pvs_defs defs =
++    let module B = Pvs_backend.PvsBackend (C) in
++      B.pvs_defs defs
++
+   let ident_exp e =
+     let module B = F(Identity)(C)(Dummy) in
+     let (e', _) = alter_init_lskips (fun _ -> (None, None)) e in
+diff -Naur ../lem/src/backend.mli ../lem_ext/src/backend.mli
+--- ../lem/src/backend.mli	2019-03-28 16:38:21.360828987 -0400
++++ ../lem_ext/src/backend.mli	2019-03-28 16:58:41.461143452 -0400
+@@ -72,6 +72,7 @@
+   val isa_defs        : Typed_ast.def list * Ast.lex_skips -> (Ulib.Text.t * Ulib.Text.t option)
+   val isa_header_defs : Typed_ast.def list * Ast.lex_skips -> Ulib.Text.t
+   val coq_defs        : Typed_ast.def list * Ast.lex_skips -> (Ulib.Text.t * Ulib.Text.t)
++  val pvs_defs        : Typed_ast.def list * Ast.lex_skips -> (Ulib.Text.t * Ulib.Text.t)
+   val tex_defs        : Typed_ast.def list * Ast.lex_skips -> Ulib.Text.t
+   val tex_inc_defs    : Typed_ast.def list * Ast.lex_skips -> Ulib.Text.t * Ulib.Text.t
+   val html_defs       : Typed_ast.def list * Ast.lex_skips -> Ulib.Text.t
+diff -Naur ../lem/src/def_trans.ml ../lem_ext/src/def_trans.ml
+--- ../lem/src/def_trans.ml	2019-03-28 16:38:21.364828846 -0400
++++ ../lem_ext/src/def_trans.ml	2019-03-28 17:01:31.687824443 -0400
+@@ -240,18 +240,25 @@
+         if (not (Typed_ast.in_targets_opt targ topt)) then (* do nothing for this target *) None else
+         if (not (Seplist.for_all (fun (_, c, _, _, _, _) -> const_has_target_rep_and_is_let l env targ c) funs)) then None else
+         if (not (target_supports_lemma_type targ (Ast.Lemma_theorem None)) ||
+-            not (const_exists env "equality")) then
++            not (const_exists env lenv "equality")) then
+           Some(env0, [comment_def def])            
+         else 
+         begin
+           let fun_eqs = Seplist.to_list_map (funcl_aux_to_exp env) funs in
++	  let cs = Seplist.to_list_map (fun ((_, c, _, _, _, _):funcl_aux) -> c) funs in
++	  let sk2 = 
++	    if List.length cs > 0 then
++	      let cstrs = String.concat "," (List.map (Types.string_of_const_descr_ref) cs) in
++	      Some [Ast.Com (Ast.Chars (Ulib.Text.of_string cstrs))]
++	    else
++	      None in
+           let body = mk_and_exps env fun_eqs in
+           let lemma_const_name = match Seplist.to_list funs with
+             | [] -> assert false
+             | (_, c, _, _, _, _)::_ -> const_descr_ref_to_ascii_name env.c_env c in
+           let lemma_name = Name.add_lskip (Name.from_string ((Name.to_string lemma_const_name) ^ "_def_lemma")) in
+ 
+-          let d' = Lemma (sk1, Ast.Lemma_lemma None, topt, (lemma_name, l), None, body) in
++          let d' = Lemma (sk1, Ast.Lemma_lemma None, topt, (lemma_name, l), sk2, body) in
+           Some(env0, [comment_def def; ((d', sk_d), l, lenv)])            
+         end
+     | _ -> None
+diff -Naur ../lem/src/main.ml ../lem_ext/src/main.ml
+--- ../lem/src/main.ml	2019-03-28 16:38:21.364828846 -0400
++++ ../lem_ext/src/main.ml	2019-03-28 17:03:48.492205048 -0400
+@@ -126,6 +126,9 @@
+   ( "-coq",
+     Arg.Unit (add_backend (Target.Target_no_ident Target.Target_coq)),
+     " generate Coq");
++  ( "-pvs",
++    Arg.Unit (add_backend (Target.Target_no_ident Target.Target_pvs)),
++    " generate Pvs");
+   ( "-lem",
+     Arg.Unit (add_backend (Target.Target_no_ident Target.Target_lem)),
+     " generate Lem output after simple transformations");
+diff -Naur ../lem/src/parser.mly ../lem_ext/src/parser.mly
+--- ../lem/src/parser.mly	2019-03-28 16:38:21.364828846 -0400
++++ ../lem_ext/src/parser.mly	2019-03-28 19:52:16.181311543 -0400
+@@ -112,6 +112,8 @@
+     Target_ocaml(s1)
+   else if Ulib.Text.compare n (r"coq") = 0 then
+     Target_coq(s1)
++  else if Ulib.Text.compare n (r"pvs") = 0 then
++    Target_pvs(s1)
+   else if Ulib.Text.compare n (r"isabelle") = 0 then
+     Target_isa(s1)
+   else if Ulib.Text.compare n (r"tex") = 0 then
+@@ -121,7 +123,7 @@
+   else if Ulib.Text.compare n (r"lem") = 0 then
+     Target_lem(s1)
+   else
+-    raise (Parse_error_locn(loc (),"Expected substitution target in {hol; isabelle; ocaml; coq; tex; html}, given " ^ Ulib.Text.to_string n))
++    raise (Parse_error_locn(loc (),"Expected substitution target in {hol; isabelle; ocaml; coq; tex; html; pvs}, given " ^ Ulib.Text.to_string n))
+ 
+ let build_fexp (Expr_l(e,_)) l =
+   match e with
+diff -Naur ../lem/src/patterns.ml ../lem_ext/src/patterns.ml
+--- ../lem/src/patterns.ml	2019-03-28 16:38:21.364828846 -0400
++++ ../lem_ext/src/patterns.ml	2019-03-28 19:59:18.018887658 -0400
+@@ -1246,6 +1246,10 @@
+          (fun _   -> num_matrix_compile_fun false);   
+          (fun _   -> num_add_matrix_compile_fun true (fun i -> i < 3)); 
+       ]
++    | Target_no_ident Target_pvs -> [
++	 (fun _   -> num_matrix_compile_fun false);   
++         (fun _   -> num_add_matrix_compile_fun false (fun i -> i < 3));
++      ]
+     | Target_ident -> (* make identity behave like ocaml for debug, controlled by flag !ident_force_pattern_compile *) target_compile_funs (Target_no_ident Target_ocaml) 
+     | _ -> []
+   in target_compile_funs topt @ basic_compile_funs topt
+@@ -2099,6 +2103,44 @@
+      allow_redundant = false;
+      allow_non_exhaustive = false }
+ 
++let is_pvs_pat_direct (toplevel : bool) env (p : pat) : bool = 
++  match p.term with
++    | P_num_add _ -> false
++    | P_record _ -> false
++    | (P_vector _ | P_vectorC _) -> false
++    | P_lit li -> 
++      begin
++         match li.term with 
++           | L_num (_, i, _) -> false
++           | L_numeral _ -> false
++           | _ -> true
++      end
++    | P_const (c, _) -> not toplevel && is_buildin_constructor Ast.Unknown env (Target.Target_no_ident Target.Target_pvs) c.descr
++    | _ -> true
++
++let is_pvs_pat toplevel env = for_all_subpat (is_pvs_pat_direct toplevel env)
++
++let is_pvs_exp env (e : exp) : bool = 
++  let module C = Exps_in_context(struct let env_opt = Some env let avoid = None end) in
++  match C.exp_to_term e with
++    | Let(_,(Let_fun (_, pL, _, _, _),_),_,_) -> false
++    | Let(_,(Let_val (p,_,_,e),_),_,_) -> is_pvs_pat false env p
++    | Fun (_, pL, _, _) -> List.for_all (is_pvs_pat false env) pL
++    | Function _ -> false
++    | Case _ -> true
++    | Quant (_, qbs, _, _) -> List.for_all (function | Qb_var _ -> true | Qb_restr(_,_,p,_,_,_) -> is_pvs_pat false env p) qbs
++    | _ -> false
++
++let is_pvs_def = is_pat_match_def (is_pvs_pat true) (fun mp -> mp.redundant_pats = [] && mp.is_exhaustive)
++
++let is_pvs_pattern_match:match_check_arg = 
++   { exp_OK = (fun env e -> is_pvs_exp env e &&
++                 (match check_match_exp env e with Some mp -> mp.redundant_pats = [] && mp.is_exhaustive | None -> true));
++     def_OK = is_pvs_def;
++     pat_OK = is_pvs_pat false;
++     allow_redundant = false;
++     allow_non_exhaustive = false }
++
+ 
+ (******************************************************************************)
+ (* Compilation for inductive relations                                        *)
+diff -Naur ../lem/src/patterns.mli ../lem_ext/src/patterns.mli
+--- ../lem/src/patterns.mli	2019-03-28 16:38:21.364828846 -0400
++++ ../lem_ext/src/patterns.mli	2019-03-28 19:59:59.980246038 -0400
+@@ -118,6 +118,7 @@
+ val is_isabelle_pattern_match : match_check_arg
+ val is_hol_pattern_match : match_check_arg
+ val is_coq_pattern_match : match_check_arg
++val is_pvs_pattern_match : match_check_arg
+ val is_ocaml_pattern_match : match_check_arg
+ val is_pattern_match_const : bool -> match_check_arg
+ 
+diff -Naur ../lem/src/process_file.ml ../lem_ext/src/process_file.ml
+--- ../lem/src/process_file.ml	2019-03-28 16:38:21.364828846 -0400
++++ ../lem_ext/src/process_file.ml	2019-03-28 20:02:49.018448599 -0400
+@@ -321,7 +321,46 @@
+             with | Trans.Trans_error(l,msg) ->
+                     raise (Reporting_basic.Fatal_error (Reporting_basic.Err_trans_header (l, msg)))
+           end
++      | Target.Target_no_ident(Target.Target_pvs) -> 
++          begin
++          try begin
++            let (r, r_extra) = B.pvs_defs m.typed_ast in
++            let _ = if (!only_auxiliary) then () else 
++              begin
++                let (o, ext_o) = open_output_with_check dir (module_name ^ ".pvs") in
++                Printf.fprintf o "%s: THEORY\n\nBEGIN\n\n" module_name;
++		Printf.fprintf o "IMPORTING lib_extra\n\n";
++                (*begin 
++                  if imported_modules <> [] then 
++                    begin
++                      List.iter (fun f -> Printf.fprintf o "IMPORTING %s \n" f) imported_modules
++                    end;
++                end;*)
++                Printf.fprintf o "%s" (Ulib.Text.to_string r);
++                Printf.fprintf o "END %s\n" module_name;
++                close_output_with_check ext_o
++              end in
+ 
++              let _ = if String.equal (Ulib.Text.to_string r_extra) "" then () else
++              begin
++                let (o, ext_o) = open_output_with_check dir (module_name ^ "_aux.pvs") in              
++                Printf.fprintf o "%s_aux: THEORY\n\nBEGIN\n\n" module_name;
++		Printf.fprintf o "IMPORTING lib_extra\n\n";
++		Printf.fprintf o "IMPORTING %s\n\n" module_name;
++                (*begin 
++                  if extra_imported_modules <> [] then 
++                    begin
++                      List.iter (fun f -> Printf.fprintf o "IMPORTING %s \n" f) extra_imported_modules
++                    end;
++                end;*)
++                Printf.fprintf o "%s" (Ulib.Text.to_string r_extra);
++                Printf.fprintf o "END %s\n" (module_name ^ "_aux");
++                close_output_with_check ext_o
++              end in ()
++            end
++            with | Trans.Trans_error(l,msg) ->
++                    raise (Reporting_basic.Fatal_error (Reporting_basic.Err_trans_header (l, msg)))
++          end
+       | Target.Target_no_ident(Target.Target_coq) -> 
+           try begin
+             let (r, r_extra) = B.coq_defs m.typed_ast in
+diff -Naur ../lem/src/rename_top_level.ml ../lem_ext/src/rename_top_level.ml
+--- ../lem/src/rename_top_level.ml	2019-03-28 16:38:21.364828846 -0400
++++ ../lem_ext/src/rename_top_level.ml	2019-03-28 20:05:13.799541581 -0400
+@@ -97,7 +97,14 @@
+   let (module_path, module_name) = Path.to_name_list mod_path in
+   snd (Def_trans.process_defs (List.rev module_path) flatten_modules_macro module_name e d)
+ 
+-
++let compute_pvs_rename_constant_fun (nk : name_kind) (n : Name.t) : Name.t option =
++  match nk with
++    | Nk_typeconstr _ -> Name.uncapitalize n
++    | Nk_const _      -> Name.uncapitalize n
++    | Nk_constr _     -> Name.capitalize n
++    | Nk_field _      -> Name.uncapitalize n
++    | Nk_module _     -> Name.uncapitalize n
++    | Nk_class _      -> None
+ 
+ let compute_ocaml_rename_constant_fun (nk : name_kind) (n : Name.t) : Name.t option =
+   match nk with
+@@ -123,6 +130,7 @@
+     | Target_ocaml -> compute_ocaml_rename_constant_fun nk n 
+     | Target_isa -> compute_isa_rename_constant_fun nk n 
+     | Target_hol -> compute_hol_rename_constant_fun nk n 
++    | Target_pvs -> compute_pvs_rename_constant_fun nk n 
+     | _ -> None
+ 
+ let get_fresh_name consts consts' n = 
+diff -Naur ../lem/src/share_directory.ml ../lem_ext/src/share_directory.ml
+--- ../lem/src/share_directory.ml	2019-03-28 16:38:31.260496002 -0400
++++ ../lem_ext/src/share_directory.ml	2019-03-28 20:48:29.763144076 -0400
+@@ -1,2 +1,2 @@
+ (* Generated file -- do not edit. *)
+-let d="/home/cindy/Documents/Tools/lem/share/lem"
++let d="/home/cindy/Documents/Tools/lem_ext/share/lem"
+diff -Naur ../lem/src/target.ml ../lem_ext/src/target.ml
+--- ../lem/src/target.ml	2019-03-28 16:38:21.368828706 -0400
++++ ../lem_ext/src/target.ml	2019-03-28 20:11:14.170873557 -0400
+@@ -61,6 +61,7 @@
+   | Target_tex
+   | Target_html
+   | Target_lem
++  | Target_pvs
+ 
+ type target =
+   | Target_no_ident of non_ident_target 
+@@ -73,7 +74,8 @@
+   Target_isa; 
+   Target_coq; 
+   Target_tex; 
+-  Target_html;] 
++  Target_html;
++  Target_pvs;] 
+ 
+ let all_targets_only_exec_list = [
+   Target_ocaml
+@@ -87,6 +89,7 @@
+   | Ast.Target_tex   _ -> Target_tex
+   | Ast.Target_html  _ -> Target_html
+   | Ast.Target_lem   _ -> Target_lem
++  | Ast.Target_pvs   _ -> Target_pvs
+ 
+ let target_to_ast_target t = match t with
+   | Target_hol   -> Ast.Target_hol None
+@@ -96,10 +99,12 @@
+   | Target_tex   -> Ast.Target_tex None
+   | Target_html  -> Ast.Target_html None
+   | Target_lem   -> Ast.Target_lem None
++  | Target_pvs   -> Ast.Target_pvs None
+ 
+ let target_compare = Pervasives.compare
+ 
+ let ast_target_to_int = function
++  | Ast.Target_pvs _   -> 8
+   | Ast.Target_lem _   -> 7
+   | Ast.Target_hol _   -> 6
+   | Ast.Target_ocaml _ -> 5
+@@ -151,6 +156,7 @@
+   | Target_tex -> "tex"
+   | Target_html -> "html"
+   | Target_lem -> "lem"
++  | Target_pvs -> "pvs"
+ 
+ let target_to_string = function
+   | Target_ident -> "ident"
+@@ -167,6 +173,7 @@
+       | Ast.Target_tex(s) -> ws s ^ id a (r"tex")
+       | Ast.Target_html(s) -> ws s ^ id a (r"html")
+       | Ast.Target_lem(s) -> ws s ^ id a (r"lem")
++      | Ast.Target_pvs(s) -> ws s ^ id a (r"pvs")
+ 
+ let non_ident_target_to_mname = function
+   | Target_hol -> Name.from_rope (r"Hol")
+@@ -176,6 +183,7 @@
+   | Target_tex -> Name.from_rope (r"Tex")
+   | Target_html -> Name.from_rope (r"Html")
+   | Target_lem -> Name.from_rope (r"Lem")
++  | Target_pvs -> Name.from_rope (r"Pvs")
+ 
+ 
+ let is_human_target = function
+@@ -184,6 +192,7 @@
+   | Target_no_ident Target_hol   -> false
+   | Target_no_ident Target_coq   -> false
+   | Target_no_ident Target_ocaml -> false
++  | Target_no_ident Target_pvs   -> false
+   | Target_no_ident Target_html  -> true
+   | Target_no_ident Target_tex   -> true
+   | Target_no_ident Target_lem   -> true
+diff -Naur ../lem/src/target.mli ../lem_ext/src/target.mli
+--- ../lem/src/target.mli	2019-03-28 16:38:21.368828706 -0400
++++ ../lem_ext/src/target.mli	2019-03-28 20:33:40.364753404 -0400
+@@ -63,6 +63,7 @@
+   | Target_tex
+   | Target_html
+   | Target_lem
++  | Target_pvs
+ 
+ (** [target] for the typechecked ast is either a real target as in the AST or
+     the identity target *)
+diff -Naur ../lem/src/target_trans.ml ../lem_ext/src/target_trans.ml
+--- ../lem/src/target_trans.ml	2019-03-28 16:38:21.368828706 -0400
++++ ../lem_ext/src/target_trans.ml	2019-03-28 20:13:37.163280056 -0400
+@@ -339,6 +339,47 @@
+     extra = [(* fun n -> Rename_top_level.rename_defs_target (Some Target_coq) consts fixed_renames [n]) *)]; 
+     }
+ 
++let pvs =
++  { macros = indreln_macros @ 
++             dictionary_macros (Target_no_ident Target_pvs) @
++             nvar_macros @
++             [Def_macros (fun env ->  
++                            [M.remove_vals; 
++                             M.remove_import_include;
++                             M.remove_indrelns;
++                             M.type_annotate_definitions;
++                             M.remove_types_with_target_rep (Target_no_ident Target_pvs);
++                             M.defs_with_target_rep_to_lemma env (Target_no_ident Target_pvs);
++                             Patterns.compile_def (Target_no_ident Target_pvs) Patterns.is_pvs_pattern_match env]);
++              Pat_macros (fun env ->
++                let m a1 a2 a3 =
++                  match Backend_common.inline_pat_macro Target_pvs env a1 a2 a3 with
++                    | None -> Macro_expander.Fail
++                    | Some e -> Macro_expander.Continue e
++                in [m]);
++              Exp_macros (fun env ->
++                            let module T = T(struct let env = env end) in
++                               [(fun a1 a2 ->
++                                 match Backend_common.inline_exp_macro Target_pvs env a1 a2 with
++                                   | None -> Macro_expander.Fail
++                                   | Some e -> Macro_expander.Continue e);
++                               T.remove_num_lit;
++                               T.remove_list_comprehension;
++			       T.remove_set_comprehension;
++                               T.cleanup_set_quant;
++			       T.remove_fun_pats false;
++			       T.remove_restr_quant Pattern_syntax.is_var_tup_pat;
++			       T.remove_set_comp_binding;
++                               T.remove_set_restr_quant;
++                               T.remove_do;
++                               (fun a1 a2 ->
++                                 match Patterns.compile_exp (Target_no_ident Target_pvs) Patterns.is_pvs_pattern_match env a1 a2 with
++                                   | None -> Macro_expander.Fail
++                                   | Some e -> Macro_expander.Continue e)])
++             ];
++    extra = [(* (fun n -> Rename_top_level.rename_defs_target (Some Target_pvs) consts fixed_renames [n]) *)]; 
++  }
++
+ let default_avoid_f ty_avoid (cL : (Name.t -> Name.t option) list) consts = 
+   let is_good n = not (NameSet.mem n consts) && List.for_all (fun c -> c n = None) cL in
+     (ty_avoid, is_good, 
+@@ -351,6 +392,8 @@
+ 
+ let ocaml_avoid_f consts = default_avoid_f false [Name.uncapitalize] consts
+ 
++let pvs_avoid_f consts = default_avoid_f false [Name.uncapitalize] consts
++
+ let underscore_avoid_f consts = 
+   default_avoid_f false [Name.remove_underscore] consts
+ 
+@@ -403,6 +446,7 @@
+     | Target_no_ident Target_isa -> underscore_both_avoid_f
+     | Target_no_ident Target_hol -> underscore_avoid_f 
+     | Target_no_ident Target_coq -> default_avoid_f true [] 
++    | Target_no_ident Target_pvs -> pvs_avoid_f
+     | _ -> default_avoid_f false [] 
+ 
+ let rename_def_params_aux targ consts =
+@@ -545,6 +589,7 @@
+     | Target_no_ident Target_isa   -> isa
+     | Target_no_ident Target_tex   -> tex
+     | Target_no_ident Target_lem   -> lem ()
++    | Target_no_ident Target_pvs   -> pvs
+     | Target_no_ident Target_html  -> ident ()
+     | Target_ident                 -> ident ()
+   in
+diff -Naur ../lem/src/trans.ml ../lem_ext/src/trans.ml
+--- ../lem/src/trans.ml	2019-03-28 16:38:21.368828706 -0400
++++ ../lem_ext/src/trans.ml	2019-03-28 20:16:05.965174987 -0400
+@@ -1081,6 +1081,15 @@
+         Macro_expander.Continue (C.mk_pvar_annot l_unk n (C.t_to_src_t p.typ) (Some(p.typ)))
+     | _ -> Macro_expander.Fail
+ 
++let rec pvs_type_annot_pat_vars (level,pos) _ p = 
++  let l_unk = Ast.Trans(true, "pvs_type_annot_pat_vars", Some p.locn) in
++  match p.term with
++    | P_var(n) when level = Macro_expander.Top_level && 
++                    pos = Macro_expander.Param && 
++                    not (Types.TNset.is_empty (Types.free_vars p.typ)) ->
++        Macro_expander.Continue (C.mk_pvar_annot l_unk n (C.t_to_src_t p.typ) (Some(p.typ)))
++    | _ -> Macro_expander.Fail
++
+ let bind_id l = function
+   | Id_none(sk) ->
+       Id_some(Ident.mk_ident_strings [] "bind")
+diff -Naur ../lem/src/trans.mli ../lem_ext/src/trans.mli
+--- ../lem/src/trans.mli	2019-03-28 16:38:21.368828706 -0400
++++ ../lem_ext/src/trans.mli	2019-03-28 20:16:45.913785376 -0400
+@@ -152,6 +152,8 @@
+      (only add for arguments to top-level functions) *)
+   val coq_type_annot_pat_vars : pat_macro
+ 
++  val pvs_type_annot_pat_vars : pat_macro
++
+   (** {2 Type Class Macros } *)
+ 
+    (** [remove_method target add_dict] is used to remove occurrences of class methods. 
+diff -Naur ../lem/src/typed_ast_syntax.ml ../lem_ext/src/typed_ast_syntax.ml
+--- ../lem/src/typed_ast_syntax.ml	2019-03-28 16:38:21.368828706 -0400
++++ ../lem_ext/src/typed_ast_syntax.ml	2019-03-28 20:21:21.414632696 -0400
+@@ -180,10 +180,9 @@
+   let (mp, n) = External_constants.constant_label_to_path_name label in
+   strings_get_const env mp n
+ 
+-let const_exists env label =
++let const_exists env lenv label =
+   let (mp, n) = External_constants.constant_label_to_path_name label in
+-  let local_env_opt = lookup_env_opt env (List.map Name.from_string mp) in
+-  let res_opt = Util.option_bind (fun local_env -> Nfmap.apply local_env.v_env (Name.from_string n)) local_env_opt in
++  let res_opt = Nfmap.apply lenv.v_env (Name.from_string n) in
+   match res_opt with
+     | None -> false
+     | Some _ -> true
+@@ -440,10 +439,29 @@
+     { c_d with target_rep = new_tr }
+   end
+ 
++let fix_const_descr_pvs_constr c_d = 
++  let is_constr = match c_d.env_tag with
++    | K_constr -> true
++    | _ -> false
++  in if not is_constr then c_d else begin
++    (* get the argument types *)
++    let (arg_tyL, _) = Types.strip_fn_type None c_d.const_type in
++    let vars = List.map (fun ty ->
++      { term = Name.add_lskip (t_to_var_name ty);
++        locn = Ast.Unknown;
++        typ = ty;
++        rest = (); }) arg_tyL in
++
++    let rep = CR_special (c_d.spec_l, true, CR_special_uncurry (List.length arg_tyL), vars) in
++    let new_tr = Target.Targetmap.insert c_d.target_rep (Target.Target_pvs, rep) in
++
++    { c_d with target_rep = new_tr }
++  end
+   
+ let fix_const_descr c_d =
+   let c_d = fix_const_descr_ocaml_constr c_d in
+-  c_d
++  let c_d_extra = fix_const_descr_pvs_constr c_d in
++  c_d_extra
+ 
+ let c_env_store c_env c_d = c_env_store_raw c_env (fix_const_descr c_d)
+ 
+diff -Naur ../lem/src/typed_ast_syntax.mli ../lem_ext/src/typed_ast_syntax.mli
+--- ../lem/src/typed_ast_syntax.mli	2019-03-28 16:38:21.368828706 -0400
++++ ../lem_ext/src/typed_ast_syntax.mli	2019-03-28 20:23:10.114650494 -0400
+@@ -113,7 +113,7 @@
+ 
+ (** [const_exists env label] checks, whether the constant with label [label] is available in the environment [env]. If
+     it is [get_const env label] succeeds, otherwise it fails. *)
+-val const_exists : env -> string -> bool
++val const_exists : env -> local_env -> string -> bool
+ 
+ (** [names_get_const_ref env path n] looks up the constant with name [n] reachable via path [path] in
+    the environment [env] *)
+diff -Naur ../lem/src/types.ml ../lem_ext/src/types.ml
+--- ../lem/src/types.ml	2019-03-28 16:38:21.368828706 -0400
++++ ../lem_ext/src/types.ml	2019-03-28 20:24:28.038989074 -0400
+@@ -572,6 +572,7 @@
+ 
+ 
+ let string_of_const_descr_ref = string_of_int
++let string_to_const_descr_ref = int_of_string
+ 
+ let nil_const_descr_ref = 0
+ let is_nil_const_descr_ref r = (r = 0)
+@@ -595,6 +596,9 @@
+ let cdmap_update (c_env_count, c_env_map) c_id c_d =
+     (c_env_count, Cdmap.insert c_env_map (c_id, c_d))
+ 
++let cdmap_iter (c_env_count, c_env_map) f =
++    Cdmap.iter f c_env_map
++
+ let cdmap_insert (c_env_count, c_env_map) c_d = 
+   ((c_env_count+1, Cdmap.insert c_env_map (c_env_count, c_d)), c_env_count)
+ 
+diff -Naur ../lem/src/types.mli ../lem_ext/src/types.mli
+--- ../lem/src/types.mli	2019-03-28 16:38:21.368828706 -0400
++++ ../lem_ext/src/types.mli	2019-03-28 20:25:34.215429526 -0400
+@@ -138,6 +138,7 @@
+     and reporting internal errors. Its implementation can change at any point to 
+     something completely different and should not be relied on. *)
+ val string_of_const_descr_ref : const_descr_ref -> string
++val string_to_const_descr_ref : string -> const_descr_ref
+ 
+ module Cdmap : Finite_map.Fmap with type k = const_descr_ref
+ module Cdset : Set.S with type elt = const_descr_ref
+@@ -154,6 +155,7 @@
+ 
+ (** [cdmap_update m r v] updates map [m] at reference [r] with value [v]. *)
+ val cdmap_update : 'a cdmap -> const_descr_ref -> 'a -> 'a cdmap
++val cdmap_iter : 'a cdmap -> (const_descr_ref -> 'a -> unit) -> unit
+ 
+ (** [cdmap_insert m v] inserts value [v] into [m]. A fresh (not occurring in [m]) reference
+     is generated for [v] and returned together with the modifed map. *)
+diff -Naur ../lem/src/version.ml ../lem_ext/src/version.ml
+--- ../lem/src/version.ml	2019-03-28 16:38:31.260496002 -0400
++++ ../lem_ext/src/version.ml	2019-03-28 20:48:29.759143978 -0400
+@@ -1,2 +1,2 @@
+ (* Generated file -- do not edit. *)
+-let v="2019-01-22-1-g0927743"
++let v="2019-01-22-1-g0927743-dirty"

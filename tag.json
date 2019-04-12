@@ -1,0 +1,35 @@
+{
+    "basic_library": {
+        "library_path": "../lem/library",
+        "pvs_library_name": "OPEV_Basic",
+        "lem_src_files": "bool.lem basic_classes.lem function.lem maybe.lem num.lem tuple.lem list.lem either.lem set_helpers.lem set.lem map.lem relation.lem sorting.lem function_extra.lem assert_extra.lem list_extra.lem string.lem num_extra.lem map_extra.lem set_extra.lem maybe_extra.lem string_extra.lem word.lem show.lem show_extra.lem machine_word.lem pervasives.lem pervasives_extra.lem",
+        "lem_flags": "-wl ign -wl_auto_import err -wl_rename err -auxiliary_level none -only_changed_output",
+        "special_prefix": ""
+    },
+    "patch": {
+        "dest_dir": "../lem",
+        "src_dir": "../lem_ext",
+        "patch_path": "patches"
+    },
+    "lem_executable": "../lem/lem",
+    "lem_source_libs": "../sail/src/gen_lib ../sail/src/lem_interp",
+    "sail_libs": ["mips_no_tlb", "cheri"],
+    "mips_no_tlb": {
+        "sail_src_path": "../sail-cheri-mips/mips",
+        "sail_src_files": "trace.sail prelude.sail mips_prelude.sail mips_tlb_stub.sail mips_wrappers.sail mips_ast_decl.sail mips_insts.sail mips_ri.sail mips_epilogue.sail",
+        "lem_src_files": "mips_no_tlb.lem mips_extras.lem",
+        "lem_embedded_lib": "Mips_extras",
+        "lem_object_name": "mips_no_tlb",
+        "target_dir": "./pvs_mips",
+        "lem_flags": "-lem_mwords -memo_z3 -undefined_gen -no_lexp_bounds_check"
+    },
+    "cheri": {
+        "sail_src_path": "../sail-cheri-mips/cheri",
+        "sail_src_files": "../mips/notrace.sail ../mips/prelude.sail ../mips/mips_prelude.sail /home/cindy/Documents/Tools/sail/lib/mono_rewrites.sail ../mips/mips_tlb.sail cheri_types.sail cheri_prelude_256.sail cheri_prelude_common.sail ../mips/mips_insts.sail cheri_insts.sail ../mips/mips_ri.sail ../mips/mips_epilogue.sail ../mips/main.sail",
+        "lem_src_files": "cheri.lem cheri_types.lem ../mips/mips_extras.lem",
+        "lem_embedded_lib": "Mips_extras",
+        "lem_object_name": "cheri",
+        "target_dir": "./pvs_cheri",
+        "lem_flags": "-auto_mono -mono_rewrites -dmono_continue -lem_mwords -undefined_gen -memo_z3"
+    }
+}

@@ -1,0 +1,3331 @@
+diff -Naur ../lem/library/assert_extra.lem ../lem_ext/library/assert_extra.lem
+--- ../lem/library/assert_extra.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/assert_extra.lem	2019-03-28 21:35:01.280416315 -0400
+@@ -4,11 +4,12 @@
+ (* preconditions.                       *)
+ (* ------------------------------------ *)
+ 
+-declare {isabelle;ocaml;hol;coq} rename module = lem_assert_extra
++declare {isabelle;ocaml;hol;coq;pvs} rename module = lem_assert_extra
+ open import {ocaml} `Xstring`
+ open import {hol} `stringTheory` `lemTheory`
+ open import {coq} `Coq.Strings.Ascii` `Coq.Strings.String`
+ open import {isabelle} `$LIB_DIR/Lem`
++open import {pvs} `structures@Unit`
+ 
+ (* ------------------------------------ *)
+ (* failing with a proper error message  *)
+@@ -19,6 +20,7 @@
+ declare hol      target_rep function failwith = `failwith`
+ declare isabelle target_rep function failwith = `failwith`
+ declare coq      target_rep function failwith s = `DAEMON`
++declare pvs      target_rep function failwith = `failwith`
+ 
+ (* ------------------------------------ *)
+ (* failing without an error message     *)
+diff -Naur ../lem/library/basic_classes.lem ../lem_ext/library/basic_classes.lem
+--- ../lem/library/basic_classes.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/basic_classes.lem	2019-03-28 21:35:01.284416376 -0400
+@@ -4,7 +4,7 @@
+ 
+ open import Bool
+ 
+-declare {isabelle;ocaml;hol;coq} rename module = lem_basic_classes 
++declare {isabelle;ocaml;hol;coq;pvs} rename module = lem_basic_classes 
+ 
+ open import {coq} `Coq.Strings.Ascii`
+ open import {hol} `ternaryComparisonsTheory`
+@@ -58,6 +58,8 @@
+ declare ocaml    target_rep function unsafe_structural_equality = infix `=`
+ declare isabelle target_rep function unsafe_structural_equality = infix `=`
+ declare coq      target_rep function unsafe_structural_equality = `classical_boolean_equivalence`
++declare pvs 	 target_rep function unsafe_structural_equality = `eqs`
++
+ 
+ val unsafe_structural_inequality : forall 'a. 'a -> 'a -> bool
+ let unsafe_structural_inequality x y = not (unsafe_structural_equality x y)
+@@ -100,6 +102,11 @@
+ declare hol target_rep function EQ = `EQUAL`
+ declare hol target_rep function GT = `GREATER`
+ 
++declare pvs target_rep type ordering = `ordering`
++declare pvs target_rep function LT = `-1`
++declare pvs target_rep function EQ = `0`
++declare pvs target_rep function GT = `1`
++
+ let orderingIsLess r       = (match r with LT -> true | _ -> false end)
+ let orderingIsGreater r    = (match r with GT -> true | _ -> false end)
+ let orderingIsEqual r      = (match r with EQ -> true | _ -> false end)
+@@ -151,6 +158,10 @@
+ declare coq target_rep function isLessEqual = `isLessEqual`
+ declare coq target_rep function isGreater = `isGreater`
+ declare coq target_rep function isGreaterEqual = `isGreaterEqual`
++(* declare pvs target_rep function isLess = `isLess`
++declare pvs target_rep function isLessEqual = `isLessEqual`
++declare pvs target_rep function isGreater = `isGreater`
++declare pvs target_rep function isGreaterEqual = `isGreaterEqual` *)
+ declare tex target_rep function isLess = infix `$<$`
+ declare tex target_rep function isLessEqual = infix `$\le$`
+ declare tex target_rep function isGreater = infix `$>$`
+@@ -173,26 +184,31 @@
+ declare hol      target_rep function defaultCompare = 
+ declare isabelle target_rep function defaultCompare = 
+ declare coq      target_rep function defaultCompare x y = EQ
++declare pvs      target_rep function defaultCompare x y = EQ
+ 
+ declare ocaml    target_rep function defaultLess = infix `<`
+ declare hol      target_rep function defaultLess = 
+ declare isabelle target_rep function defaultLess = 
+ declare coq      target_rep function defaultLess = 
++declare pvs      target_rep function defaultLess =
+ 
+ declare ocaml    target_rep function defaultLessEq = infix `<=`
+ declare hol      target_rep function defaultLessEq = 
+ declare isabelle target_rep function defaultLessEq = 
+ declare coq      target_rep function defaultLessEq = 
++declare pvs      target_rep function defaultLessEq =
+ 
+ declare ocaml    target_rep function defaultGreater = infix `>`
+ declare hol      target_rep function defaultGreater = 
+ declare isabelle target_rep function defaultGreater = 
+ declare coq      target_rep function defaultGreater = 
++declare pvs      target_rep function defaultGreater =
+ 
+ declare ocaml    target_rep function defaultGreaterEq = infix `>=`
+ declare hol      target_rep function defaultGreaterEq = 
+ declare isabelle target_rep function defaultGreaterEq = 
+ declare coq      target_rep function defaultGreaterEq = 
++declare pvs      target_rep function defaultGreaterEq =
+ ;;
+ 
+ let genericCompare (less: 'a -> 'a -> bool) (equal: 'a -> 'a -> bool) (x : 'a) (y : 'a) =
+@@ -261,7 +277,7 @@
+    the functions "<", "<=" ... *)
+ 
+ class ( SetType 'a ) 
+-  val {ocaml;coq} setElemCompare : 'a -> 'a -> ordering
++  val {ocaml;coq;pvs} setElemCompare : 'a -> 'a -> ordering
+ end
+ 
+ default_instance forall 'a. ( SetType 'a ) 
+@@ -301,7 +317,7 @@
+ 
+ val stringEquality : string -> string -> bool
+ declare coq target_rep function stringEquality left right = (`string_equal` left right)
+-let inline {ocaml;hol;isabelle} stringEquality = unsafe_structural_equality
++let inline {ocaml;hol;isabelle;pvs} stringEquality = unsafe_structural_equality
+ 
+ instance (Eq string)
+   let (=)      = stringEquality
+@@ -316,9 +332,10 @@
+ val pairEqualBy : forall 'a 'b. ('a -> 'a -> bool) -> ('b -> 'b -> bool) -> ('a * 'b) -> ('a * 'b) -> bool
+ declare ocaml    target_rep function pairEqualBy = `Lem.pair_equal`
+ declare coq      target_rep function pairEqualBy leftEq rightEq left right = (`tuple_equal_by` leftEq rightEq left right)
++declare pvs      target_rep function pairEqualBy = `pair_equal`
+ 
+ let inline {hol;isabelle} pairEqual = unsafe_structural_equality
+-let inline {ocaml;coq} pairEqual = pairEqualBy isEqual isEqual
++let inline {ocaml;coq;pvs} pairEqual = pairEqualBy isEqual isEqual
+ 
+ instance forall 'a 'b. Eq 'a, Eq 'b => (Eq ('a * 'b))
+   let (=) = pairEqual
+diff -Naur ../lem/library/bool.lem ../lem_ext/library/bool.lem
+--- ../lem/library/bool.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/bool.lem	2019-03-28 21:35:01.284416376 -0400
+@@ -4,7 +4,7 @@
+ 
+ (* rename module to clash with existing list modules of targets *)
+ 
+-declare {isabelle;hol;ocaml;coq} rename module = lem_bool 
++declare {isabelle;hol;ocaml;coq;pvs} rename module = lem_bool 
+ 
+ (* The type bool is hard-coded, so are true and false *)
+ 
+@@ -23,6 +23,7 @@
+ declare isabelle target_rep function not x = `\<not>` x
+ declare html     target_rep function not = `&not;`
+ declare coq      target_rep function not = `negb`
++declare pvs      target_rep function not = `NOT`
+ declare tex      target_rep function not b = `$\neg$` b
+ 
+ assert not_1 : not (not true)
+@@ -42,6 +43,7 @@
+ declare ocaml    target_rep function (&&) = infix `&&`
+ declare isabelle target_rep function (&&) = infix `\<and>`
+ declare coq      target_rep function (&&) = infix `&&`
++declare pvs      target_rep function (&&) = `bool_and`
+ declare html     target_rep function (&&) = infix `&and;`
+ declare tex      target_rep function (&&) = infix `$\wedge$`
+ 
+@@ -65,6 +67,7 @@
+ declare ocaml    target_rep function (||) = infix `||`
+ declare isabelle target_rep function (||) = infix `\<or>`
+ declare coq      target_rep function (||) = infix `||`
++declare pvs      target_rep function (||) = `bool_or`
+ declare html     target_rep function (||) = infix `&or;`
+ declare tex      target_rep function (||) = infix `$\vee$`
+ 
+@@ -87,10 +90,11 @@
+ declare hol      target_rep function (-->) = infix `==>`
+ declare isabelle target_rep function (-->) = infix `\<longrightarrow>`
+ (* declare coq      target_rep function (-->) = `imp` *)
++(* declare pvs      target_rep function (-->) = infix `IMPLIES` *)
+ declare html     target_rep function (-->) = infix `&rarr;`
+ declare tex      target_rep function (-->) = infix `$\longrightarrow$`
+ 
+-let inline {ocaml; coq} imp x y = ((not x) || y)
++let inline {ocaml; coq; pvs} imp x y = ((not x) || y)
+ 
+ assert imp_1 : (not (true --> false))
+ assert imp_2 : (false --> true)
+@@ -102,6 +106,7 @@
+ (* equivalence             *)
+ (* ----------------------- *)
+ 
++
+ val (<->) [`equiv`] : bool -> bool -> bool
+ let (<->) b1 b2 = match (b1, b2) with
+   | (true, true) -> true
+@@ -112,6 +117,7 @@
+ declare hol      target_rep function (<->) = infix `<=>`
+ declare isabelle target_rep function (<->) = infix `\<longleftrightarrow>`
+ declare coq      target_rep function (<->) = `eqb`
++declare pvs      target_rep function (<->) = `eqs`
+ declare ocaml    target_rep function (<->) = infix `=`
+ declare html     target_rep function (<->) = infix `&harr;`
+ declare tex      target_rep function (<->) = infix `$\longleftrightarrow$`
+diff -Naur ../lem/library/either.lem ../lem_ext/library/either.lem
+--- ../lem/library/either.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/either.lem	2019-03-28 21:35:01.284416376 -0400
+@@ -6,7 +6,7 @@
+ (* Header                                                                     *)
+ (* ========================================================================== *)
+ 
+-declare {isabelle;hol;coq} rename module = lem_either 
++declare {isabelle;hol;coq;pvs} rename module = lem_either 
+ declare {ocaml} rename module = Lem_either 
+ 
+ open import Bool Basic_classes List Tuple
+@@ -21,6 +21,7 @@
+ declare isabelle target_rep type either = `sum`
+ declare hol      target_rep type either = `sum`
+ declare coq      target_rep type either = `sum`
++declare pvs      target_rep type either = `union`
+ 
+ declare isabelle target_rep function Left  = `Inl`
+ declare isabelle target_rep function Right = `Inr`
+@@ -30,6 +31,8 @@
+ declare hol      target_rep function Right = `INR`
+ declare coq      target_rep function Left  = `inl`
+ declare coq      target_rep function Right = `inr`
++declare pvs      target_rep function Left  = `inl`
++declare pvs      target_rep function Right = `inr`
+ 
+ 
+ (* -------------------------------------------------------------------------- *)
+diff -Naur ../lem/library/function_extra.lem ../lem_ext/library/function_extra.lem
+--- ../lem/library/function_extra.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/function_extra.lem	2019-03-28 21:35:01.284416376 -0400
+@@ -1,4 +1,4 @@
+-declare {isabelle;hol;ocaml;coq} rename module = lem_function_extra
++declare {isabelle;hol;ocaml;coq;pvs} rename module = lem_function_extra
+ 
+ open import Maybe Bool Basic_classes Num Function
+ 
+@@ -37,6 +37,7 @@
+ declare hol      target_rep function THE = `$THE`
+ declare ocaml    target_rep function THE = `THE`
+ declare isabelle target_rep function THE = `The_opt`
++declare pvs      target_rep function THE = `the_opt`
+ 
+ lemma ~{coq} THE_spec : (forall p x. (THE p = Just x) <-> ((p x) && (forall y. p y --> (x = y))))
+ 
+diff -Naur ../lem/library/function.lem ../lem_ext/library/function.lem
+--- ../lem/library/function.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/function.lem	2019-03-28 21:35:01.284416376 -0400
+@@ -4,7 +4,7 @@
+ 
+ open import Bool Basic_classes
+ 
+-declare {isabelle;hol;ocaml;coq} rename module = lem_function
++declare {isabelle;hol;ocaml;coq;pvs} rename module = lem_function
+ 
+ open import {coq} `Program.Basics`
+ 
+@@ -18,6 +18,7 @@
+ let inline {coq} id x = x
+ declare isabelle target_rep function id = `id`
+ declare hol      target_rep function id = `I`
++declare pvs      target_rep function id = `id`
+ 
+ 
+ (* ----------------------- *)
+@@ -51,7 +52,7 @@
+ let apply f = (fun x -> f x)
+ 
+ declare coq target_rep function apply = `apply`
+-let inline {isabelle;ocaml;hol} apply f x = f x
++let inline {isabelle;ocaml;hol;pvs} apply f x = f x
+ 
+ val ($>) [`rev_apply`] : forall 'a 'b. 'a -> ('a -> 'b) -> 'b
+ let rev_apply x f = f x
+diff -Naur ../lem/library/list_extra.lem ../lem_ext/library/list_extra.lem
+--- ../lem/library/list_extra.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/list_extra.lem	2019-03-28 21:35:01.284416376 -0400
+@@ -14,10 +14,12 @@
+ (* rename module to clash with existing list modules of targets
+    problem: renaming from inside the module itself! *)
+ 
+-declare {isabelle;hol;ocaml;coq} rename module = lem_list_extra
++declare {isabelle;hol;ocaml;coq;pvs} rename module = lem_list_extra
+ 
+ open import Bool Maybe Basic_classes Tuple Num List Assert_extra
+ 
++open import {pvs} `list_extra`
++
+ (* ------------------------- *)
+ (* head of non-empty list    *)
+ (* ------------------------- *)
+@@ -28,6 +30,7 @@
+ declare hol      target_rep function head = `HD`
+ declare ocaml    target_rep function head = `List.hd`
+ declare isabelle target_rep function head = `List.hd`
++declare pvs      target_rep function head = `car`
+ 
+ assert head_simple_1: (head [3;1] = (3:nat))
+ assert head_simple_2: (head [5;4] = (5:nat))
+@@ -44,6 +47,7 @@
+ declare hol      target_rep function tail = `TL`
+ declare ocaml    target_rep function tail = `List.tl`
+ declare isabelle target_rep function tail = `List.tl`
++declare pvs      target_rep function tail = `cdr`
+ 
+ assert tail_simple_1: (tail [(3:nat);1] = [1])
+ assert tail_simple_2: (tail [(5:nat)] = [])
+@@ -116,6 +120,7 @@
+ declare ocaml    target_rep function nth     = `List.nth`
+ declare isabelle target_rep function nth     = `List.nth`
+ declare coq      target_rep function nth l n = `List.nth` n l
++declare pvs      target_rep function nth     = `nth`
+ 
+ assert nth_0: (nth [0;1;2;3;4;5] 0 = (0:nat))
+ assert nth_1: (nth [0;1;2;3;4;5] 1 = (1:nat))
+diff -Naur ../lem/library/list.lem ../lem_ext/library/list.lem
+--- ../lem/library/list.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/list.lem	2019-03-28 21:35:01.284416376 -0400
+@@ -11,13 +11,14 @@
+ (* ========================================================================== *)
+ 
+ 
+-declare {isabelle;ocaml;hol;coq} rename module = lem_list 
++declare {isabelle;ocaml;hol;coq;pvs} rename module = lem_list 
+ 
+ open import Bool Maybe Basic_classes Function Tuple Num
+ 
+ open import {coq} `Coq.Lists.List`
+ open import {isabelle} `$LIB_DIR/Lem`
+ open import {hol} `lemTheory` `listTheory` `rich_listTheory` `sortingTheory`
++open import {pvs} `list_extra`
+ 
+ (* ========================================================================== *)
+ (* Basic list functions                                                       *)
+@@ -38,6 +39,7 @@
+ declare ocaml    target_rep function cons = infix `::`
+ declare isabelle target_rep function cons = infix `#`
+ declare coq      target_rep function cons = infix `::`
++declare pvs      target_rep function cons = `list_cons`
+ 
+ 
+ (* ----------------------- *)
+@@ -48,7 +50,7 @@
+ let null l = match l with [] -> true | _ -> false end
+ 
+ declare hol   target_rep function null = `NULL`
+-declare {ocaml} rename function null = list_null
++declare {ocaml; pvs} rename function null = list_null
+ let inline {isabelle} null l = (l = [])
+ 
+ assert null_simple_1: (null ([]:list nat))
+@@ -72,6 +74,7 @@
+ declare ocaml    target_rep function length = `List.length`
+ declare isabelle target_rep function length = `List.length`
+ declare coq      target_rep function length = `List.length`
++declare pvs      target_rep function length = `length`
+ 
+ assert length_0: (length ([]:list nat) = 0)
+ assert length_1: (length ([2]:list nat) = 1)
+@@ -97,7 +100,9 @@
+ let inline listEqual = listEqualBy (=)
+ declare hol      target_rep function listEqual = infix `=`
+ declare isabelle target_rep function listEqual = infix `=`
++declare pvs      target_rep function listEqual = `eqs`
+ declare coq      target_rep function listEqualBy = `list_equal_by`
++declare pvs      target_rep function listEqualBy = `list_equal_by`
+ 
+ instance forall 'a. Eq 'a => (Eq (list 'a))
+   let (=) = listEqual
+@@ -128,6 +133,7 @@
+ 
+ let inline lexicographicCompare = lexicographicCompareBy compare
+ declare {ocaml;hol} rename function lexicographicCompareBy = lexicographic_compare
++declare pvs      target_rep function lexicographicCompareBy = `list_compare_by`
+ 
+ val lexicographicLess : forall 'a. Ord 'a => list 'a -> list 'a -> bool
+ val lexicographicLessBy : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool) -> list 'a -> list 'a -> bool
+@@ -140,7 +146,7 @@
+ declare termination_argument lexicographicLessBy = automatic
+ 
+ let inline lexicographicLess = lexicographicLessBy isLess isLessEqual
+-declare {ocaml;hol} rename function lexicographicLessBy = lexicographic_less
++declare {ocaml;hol;pvs} rename function lexicographicLessBy = lexicographic_less
+ 
+ val lexicographicLessEq : forall 'a. Ord 'a => list 'a -> list 'a -> bool
+ val lexicographicLessEqBy : forall 'a. ('a -> 'a -> bool) -> ('a -> 'a -> bool) -> list 'a -> list 'a -> bool
+@@ -153,7 +159,7 @@
+ declare termination_argument lexicographicLessEqBy = automatic
+ 
+ let inline lexicographicLessEq = lexicographicLessEqBy isLess isLessEqual
+-declare {ocaml;hol} rename function lexicographicLessEqBy = lexicographic_less_eq
++declare {ocaml;hol;pvs} rename function lexicographicLessEqBy = lexicographic_less_eq
+ 
+ 
+ instance forall 'a. Ord 'a => (Ord (list 'a))
+@@ -194,6 +200,7 @@
+ declare isabelle target_rep function append = infix `@`
+ declare tex      target_rep function append = infix `$+\!+$`
+ declare coq      target_rep function append = (`@` `List.app` `_`)
++declare pvs      target_rep function append = `list_append`
+ 
+ assert append_1: ([0;1;2;3] ++ [4;5] = [(0:nat);1;2;3;4;5])
+ lemma append_nil_1: (forall l. l ++ [] = l)
+@@ -207,7 +214,7 @@
+ let snoc e l = l ++ [e]
+ 
+ declare hol      target_rep function snoc = `SNOC`
+-let inline {isabelle;coq} snoc e l = l ++ [e]
++let inline {isabelle;coq;pvs} snoc e l = l ++ [e]
+ 
+ assert snoc_1 : snoc (2:nat) [] = [2]
+ assert snoc_2 : snoc (2:nat) [3;4] = [3;4;2]
+@@ -245,6 +252,7 @@
+ declare ocaml    target_rep function reverse = `List.rev`
+ declare isabelle target_rep function reverse = `List.rev`
+ declare coq      target_rep function reverse = `List.rev`
++declare pvs      target_rep function reverse = `rev`
+ 
+ assert reverse_nil: (reverse ([]:list nat) = [])
+ assert reverse_1: (reverse [(1:nat)] = [1])
+@@ -287,6 +295,7 @@
+ (*declare ocaml    target_rep function map = `List.map`*)
+ declare isabelle target_rep function map = `List.map`
+ declare coq      target_rep function map = `List.map`
++declare pvs      target_rep function map = `map`
+ 
+ assert map_nil: (map (fun x -> x + (1:nat)) [] = [])
+ assert map_1: (map (fun x -> x + (1:nat)) [0] = [1])
+@@ -326,6 +335,7 @@
+ declare ocaml    target_rep function foldl = `List.fold_left`
+ declare isabelle target_rep function foldl = `List.foldl`
+ declare coq      target_rep function foldl f e l = `List.fold_left` f l e
++declare pvs      target_rep function foldl = `foldl`
+ 
+ assert foldl_0: (foldl (+) (0:nat) [] = 0)
+ assert foldl_1: (foldl (+) (0:nat) [4] = 4)
+@@ -347,6 +357,7 @@
+ declare ocaml    target_rep function foldr f b l = `List.fold_right` f l b
+ declare isabelle target_rep function foldr f b l = `List.foldr` f l b
+ declare coq      target_rep function foldr = `List.fold_right` 
++declare pvs      target_rep function foldr = `foldr`
+ 
+ assert foldr_0: (foldr (+) (0:nat) [] = 0)
+ assert foldr_1: (foldr (+) 1 [(4:nat)] = 5)
+@@ -363,6 +374,7 @@
+ declare hol      target_rep function concat = `FLAT`
+ declare ocaml    target_rep function concat = `List.concat`
+ declare isabelle target_rep function concat = `List.concat`
++declare pvs      target_rep function concat = `list_concat`
+ 
+ assert concat_nil: (concat ([]:list (list nat)) = [])
+ assert concat_1: (concat [[(1:nat)]] = [1])
+@@ -399,6 +411,7 @@
+ declare ocaml    target_rep function all = `List.for_all`
+ declare isabelle target_rep function all P l = (forall (x IN (`set` l)). P x)
+ declare coq      target_rep function all = `List.forallb` 
++declare pvs      target_rep function all = `every`
+ 
+ assert all_0: (all (fun x -> x > (2:nat)) [])
+ assert all_4: (all (fun x -> x > (2:nat)) [4;5;6;7])
+@@ -420,6 +433,7 @@
+ declare ocaml    target_rep function any = `List.exists`
+ declare isabelle target_rep function any P l = (exists (x IN (`set` l)). P x)
+ declare coq      target_rep function any = `List.existsb` 
++declare pvs      target_rep function any = `some`
+ 
+ assert any_0: (not (any (fun x -> (x < (3:nat))) []))
+ assert any_4: (not (any (fun x -> (x < (3:nat))) [4;5;6;7]))
+@@ -749,6 +763,8 @@
+ declare termination_argument isPrefixOf = automatic
+ 
+ declare hol      target_rep function isPrefixOf = `isPREFIX`
++declare pvs      target_rep function isPrefixOf = `isPrefixOf`
++
+ 
+ assert isPrefixOf_0: (isPrefixOf [] [(0:nat);1;2;3;4])
+ assert isPrefixOf_1: (isPrefixOf [0] [(0:nat);1;2;3;4])
+@@ -820,6 +836,8 @@
+ let elem = elemBy (=)
+ 
+ declare hol      target_rep function elem = `MEM`
++declare pvs      target_rep function elemBy = `list_member_by`
++declare pvs      target_rep function elem = `list_member`
+ (*  declare ocaml    target_rep function elem = `List.mem`  *)
+ declare isabelle target_rep function elem e l = `Set.member` e (`set` l)
+ 
+@@ -864,7 +882,7 @@
+ let inline lookup = lookupBy (=)
+ 
+ declare isabelle target_rep function lookup x l = `Map.map_of` l x
+-declare {ocaml;hol} rename function lookup = list_assoc_opt
++declare {ocaml;hol;pvs} rename function lookup = list_assoc_opt
+ 
+ assert lookup_1 : (lookup (3:nat) ([(4, (5:nat)); (3, 4); (1,2); (3, 5)]) = Just 4)
+ assert lookup_2 : (lookup (8:nat) ([(4, (5:nat)); (3, 4); (1,2); (3, 5)]) = Nothing)
+@@ -884,6 +902,7 @@
+ declare ocaml    target_rep function filter = `List.filter`
+ declare isabelle target_rep function filter = `List.filter`
+ declare coq      target_rep function filter = `List.filter`
++declare pvs      target_rep function filter = `filter`
+ 
+ assert filter_0: (filter (fun x -> x > (4:nat)) [] = [])
+ assert filter_1: (filter (fun x -> x > (4:nat)) [1;2;4;5;2;7;6] = [5;7;6])
+@@ -904,6 +923,7 @@
+ declare hol      target_rep function reversePartition = `PARTITION`
+ declare ocaml    target_rep function partition = `List.partition`
+ declare isabelle target_rep function partition = `List.partition`
++declare pvs    target_rep function partition = `list_partition`
+ 
+ assert partition_0: (partition (fun x -> x > (4:nat)) [] = ([], []))
+ assert partition_1: (partition (fun x -> x > (4:nat)) [1;2;4;5;2;7;6] = ([5;7;6], [1;2;4;2]))
+@@ -924,7 +944,7 @@
+ declare termination_argument deleteFirst = automatic
+ 
+ declare isabelle target_rep function deleteFirst = `delete_first`
+-declare {ocaml;hol} rename function deleteFirst = list_delete_first
++declare {ocaml;hol;pvs} rename function deleteFirst = list_delete_first
+ 
+ assert deleteFirst_1: (deleteFirst (fun x -> x > (5:nat)) [3;6;7;1] = Just [3;7;1])
+ assert deleteFirst_2: (deleteFirst (fun x -> x > (15:nat)) [3;6;7;1] = Nothing)
+@@ -938,8 +958,8 @@
+ let inline delete = deleteBy (=)
+ 
+ declare isabelle target_rep function delete = `remove1`
+-declare {ocaml;hol} rename function delete = list_remove1
+-declare {ocaml;hol} rename function deleteBy = list_delete
++declare {ocaml;hol;pvs} rename function delete = list_remove1
++declare {ocaml;hol;pvs} rename function deleteBy = list_delete
+ 
+ assert delete_1: (delete (6:nat) [(3:nat);6;7;1] = [3;7;1])
+ assert delete_2: (delete (4:nat) [(3:nat);6;7;1] = [3;6;7;1])
+@@ -964,7 +984,7 @@
+ declare termination_argument zip = automatic
+ 
+ declare isabelle target_rep function zip = `List.zip`
+-declare {ocaml;hol} rename function zip = list_combine
++declare {ocaml;hol;pvs} rename function zip = list_combine
+ 
+ assert zip_1 : (zip [(1:nat); 2;3;4;5] [(2:nat); 3;4;5;6] = [(1,2);(2,3);(3,4);(4,5);(5,6)])
+ 
+@@ -985,6 +1005,7 @@
+ declare hol      target_rep function unzip = `UNZIP` 
+ declare isabelle target_rep function unzip = `list_unzip`
+ declare ocaml    target_rep function unzip = `List.split`
++declare pvs      target_rep function unzip = `split`
+ 
+ assert unzip_1 : (unzip ([] : list (nat * nat)) = ([], []))
+ assert unzip_2 : (unzip [((1:nat),(2:nat));(2,3);(3,4)] = ([1;2;3], [2;3;4]))
+@@ -1007,6 +1028,7 @@
+ declare termination_argument allDistinct = automatic
+ 
+ declare hol target_rep function allDistinct = `ALL_DISTINCT`
++declare pvs target_rep function allDistinct = `distinct`
+ 
+ (* some more useful functions *)
+ val mapMaybe : forall 'a 'b. ('a -> maybe 'b) -> list 'a -> list 'b
+diff -Naur ../lem/library/machine_word.lem ../lem_ext/library/machine_word.lem
+--- ../lem/library/machine_word.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/machine_word.lem	2019-03-28 21:46:34.141576237 -0400
+@@ -3,12 +3,13 @@
+ (* and a thin wrapper around the HOL and Isabelle word libraries.  *)
+ (*******************************************************************)
+ 
+-declare {isabelle;coq;hol;ocaml} rename module = Lem_machine_word
++declare {isabelle;coq;hol;ocaml;pvs} rename module = Lem_machine_word
+ 
+ open import Bool Num Basic_classes Show Function
+ 
+ open import {isabelle} `HOL-Word.Word`
+ open import {hol} `wordsTheory` `wordsLib` `bitstringTheory` `integer_wordTheory`
++open import {pvs} `mword`
+ 
+ type mword 'a
+ declare isabelle target_sorts mword = `len`
+@@ -20,6 +21,7 @@
+ declare isabelle target_rep type mword 'a = `Word.word` 'a
+ declare hol      target_rep type mword 'a = `words$word` 'a
+ declare ocaml    target_rep type mword 'a = `Lem.mword`
++declare pvs      target_rep type mword 'a = `mword`
+ 
+ val native_size : forall 'a. nat
+ declare hol      target_rep function native_size = `dimindex` (`the_value` : `itself` 'a)
+@@ -30,6 +32,9 @@
+ val ocaml_inject : forall 'a. nat * natural -> mword 'a
+ declare ocaml target_rep function ocaml_inject = `Lem.machine_word_inject`
+ 
++val pvs_inject : forall 'a. nat * natural -> mword 'a
++declare pvs   target_rep function pvs_inject = `word_inject`
++
+ (* A singleton type family that can be used to carry a size as the type parameter *)
+ 
+ type itself 'a
+@@ -37,11 +42,13 @@
+ declare hol      target_rep type itself 'a = `itself` 'a
+ declare isabelle target_rep type itself 'a = `itself` 'a
+ declare ocaml    target_rep type itself 'a = `unit`
++declare pvs      target_rep type itself 'a = `itself` 'a
+ 
+ val the_value : forall 'a. itself 'a
+ declare hol      target_rep function the_value = `the_value`
+ declare isabelle target_rep function the_value = `TYPE(_)`
+ declare ocaml    target_rep function the_value = `()`
++declare pvs      target_rep function the_value = `unit`
+ 
+ val size_itself : forall 'a. Size 'a => itself 'a -> nat
+ let size_itself x = size
+@@ -1095,6 +1102,7 @@
+ declare ocaml    target_rep function word_length = `Lem.word_length`
+ declare isabelle target_rep function word_length = `size`
+ declare hol      target_rep function word_length = `words$word_len`
++declare pvs      target_rep function word_length = `word_length`
+ 
+ (******************************************************************)
+ (* Conversions                                                    *)
+@@ -1105,12 +1113,14 @@
+ declare isabelle target_rep function signedIntegerFromWord = `Word.sint`
+ declare hol      target_rep function signedIntegerFromWord = `integer_word$w2i`
+ declare ocaml    target_rep function signedIntegerFromWord = `Lem.signedIntegerFromWord`
++declare pvs      target_rep function signedIntegerFromWord = `word_to_int`
+ 
+ val unsignedIntegerFromWord : forall 'a. mword 'a -> integer
+ 
+ declare isabelle target_rep function unsignedIntegerFromWord = `Word.uint`
+ declare hol      target_rep function unsignedIntegerFromWord = `lem$w2ui`
+ declare ocaml    target_rep function unsignedIntegerFromWord = `Lem.naturalFromWord`
++declare pvs      target_rep function unsignedIntegerFromWord = `word_to_nat`
+ 
+ (* Version without typeclass constraint so that we can derive operations
+    in Lem for one of the theorem provers without requiring it. *)
+@@ -1129,6 +1139,7 @@
+ declare isabelle target_rep function naturalFromWord = `Word.unat`
+ declare hol      target_rep function naturalFromWord = `words$w2n`
+ declare ocaml    target_rep function naturalFromWord = `Lem.naturalFromWord`
++declare pvs      target_rep function naturalFromWord = `word_to_nat`
+ 
+ val wordFromNatural : forall 'a. Size 'a => natural -> mword 'a
+ 
+@@ -1139,11 +1150,13 @@
+ 
+ let {ocaml} wordFromNatural n = ocaml_inject (size, n)
+ 
++let {pvs}   wordFromNatural n = pvs_inject (size, n)
++
+ val wordToHex : forall 'a. mword 'a -> string
+ declare hol target_rep function wordToHex = `words$word_to_hex_string`
+ (* Building libraries fails if we don't provide implementations for the
+    type class. *)
+-let {ocaml;isabelle;coq} wordToHex w = "wordToHex not yet implemented"
++let {ocaml;isabelle;coq;pvs} wordToHex w = "wordToHex not yet implemented"
+ 
+ instance forall 'a. (Show (mword 'a))
+   let show = wordToHex
+@@ -1153,29 +1166,31 @@
+ declare isabelle target_rep function wordFromBitlist = `Word.of_bl`
+ declare hol      target_rep function wordFromBitlist = `bitstring$v2w`
+ declare ocaml    target_rep function wordFromBitlist = `Lem.wordFromBitlist`
++declare pvs      target_rep function wordFromBitlist = `word_of_bl`
+ 
+ val bitlistFromWord : forall 'a. mword 'a -> list bool
+ declare isabelle target_rep function bitlistFromWord = `Word.to_bl`
+ declare hol      target_rep function bitlistFromWord = `bitstring$w2v`
+ declare ocaml    target_rep function bitlistFromWord = `Lem.bitlistFromWord`
++declare pvs      target_rep function bitlistFromWord = `word_to_bl`
+ 
+ 
+ val size_test_fn : forall 'a. Size 'a => mword 'a -> nat
+ let size_test_fn _ = size
+ 
+-assert {ocaml;isabelle} size_test : size_test_fn ((wordFromNatural 0) : mword ty5) = 5
++assert {ocaml;isabelle;pvs} size_test : size_test_fn ((wordFromNatural 0) : mword ty5) = 5
+ 
+-assert {ocaml;isabelle;hol} size_itself_test : size_itself (the_value : itself ty7) = 7
++assert {ocaml;isabelle;hol;pvs} size_itself_test : size_itself (the_value : itself ty7) = 7
+ 
+-assert {ocaml;hol;isabelle} length_test :
++assert {ocaml;hol;isabelle;pvs} length_test :
+   word_length ((wordFromNatural 0) : mword ty13) = 13
+-assert {ocaml;hol;isabelle} signedIntFromword_test :
++assert {ocaml;hol;isabelle;pvs} signedIntFromword_test :
+   signedIntegerFromWord ((wordFromNatural 130) : mword ty8) = ~126
+-assert {ocaml;hol;isabelle} wordFromBitlist_test :
++assert {ocaml;hol;isabelle;pvs} wordFromBitlist_test :
+   ((wordFromBitlist [false;false;true;false]) : mword ty4) = wordFromNatural 2
+-assert {ocaml;hol;isabelle} bitlistFromWord_test :
++assert {ocaml;hol;isabelle;pvs} bitlistFromWord_test :
+   bitlistFromWord ((wordFromNatural 2) : mword ty4) = [false;false;true;false]
+-assert {ocaml;hol;isabelle} wordFromBitlist_bitListFromWord_test :
++assert {ocaml;hol;isabelle;pvs} wordFromBitlist_bitListFromWord_test :
+   let w : mword ty8 = wordFromNatural 33 in
+   wordFromBitlist (bitlistFromWord w) = w
+ 
+@@ -1196,23 +1211,27 @@
+ 
+ declare isabelle target_rep function signedLess = `Word.word_sless`
+ declare hol      target_rep function signedLess = `words$word_lt`
++declare pvs      target_rep function signedLess = `mword_slt`
+ 
+ val signedLessEq : forall 'a. mword 'a -> mword 'a -> bool
+ 
+ declare isabelle target_rep function signedLessEq = `Word.word_sle`
+ declare hol      target_rep function signedLessEq = `words$word_le`
++declare pvs      target_rep function signedLessEq = `mword_sle`
+ 
+ val unsignedLess : forall 'a. mword 'a -> mword 'a -> bool
+ 
+ declare isabelle target_rep function unsignedLess = infix `<`
+ declare hol      target_rep function unsignedLess = `words$word_lo`
+ declare ocaml    target_rep function unsignedLess = `Lem.unsignedLess`
++declare pvs      target_rep function unsignedLess = `mword_lt`
+ 
+ val unsignedLessEq : forall 'a. mword 'a -> mword 'a -> bool
+ 
+ declare isabelle target_rep function unsignedLessEq = infix `\<le>`
+ declare hol      target_rep function unsignedLessEq = `words$word_ls`
+ declare ocaml    target_rep function unsignedLessEq = `Lem.unsignedLessEq`
++declare pvs      target_rep function unsignedLessEq = `mword_le`
+ 
+ let {ocaml} signedLess w1 w2 = (signedIntegerFromWord w1) < (signedIntegerFromWord w2)
+ let {ocaml} signedLessEq w1 w2 = (signedIntegerFromWord w1) <= (signedIntegerFromWord w2)
+@@ -1227,6 +1246,7 @@
+ declare hol      target_rep function word_concat = `words$word_concat`
+ declare isabelle target_rep function word_concat = `Word.word_cat`
+ declare ocaml    target_rep function word_concat = `Lem.word_concat`
++declare pvs      target_rep function word_concat = `word_concat`
+ 
+ (* Note that we assume the result type has the correct size, especially
+    for Isabelle. *)
+@@ -1234,6 +1254,7 @@
+ declare hol      target_rep function word_extract lo hi v = `words$word_extract` hi lo v
+ declare isabelle target_rep function word_extract lo hi v = `Word.slice` lo v
+ declare ocaml    target_rep function word_extract = `Lem.word_extract`
++declare pvs      target_rep function word_extract = `word_extract`
+ 
+ (*  Needs to be in the prover because we'd end up with unknown sizes in the
+    types in Lem.
+@@ -1242,45 +1263,50 @@
+ declare hol      target_rep function word_update v lo hi w = `words$bit_field_insert` hi lo w v
+ declare isabelle target_rep function word_update v lo hi w = `Lem.word_update` v lo hi w
+ declare ocaml    target_rep function word_update = `Lem.word_update`
++declare pvs      target_rep function word_update = `word_update`
+ 
+ val setBit : forall 'a. mword 'a -> nat -> bool -> mword 'a
+ 
+ declare isabelle target_rep function setBit = `Bits.set_bit`
+ declare hol      target_rep function setBit w i b = `$:+` i b w
+ declare ocaml    target_rep function setBit = `Lem.word_setBit`
++declare pvs      target_rep function setBit = `word_setBit`
+ 
+ val getBit : forall 'a. mword 'a -> nat -> bool
+ 
+ declare isabelle target_rep function getBit = `Bits.test_bit`
+ declare hol      target_rep function getBit w b = `words$word_bit` b w
+ declare ocaml    target_rep function getBit = `Lem.word_getBit`
++declare pvs      target_rep function getBit = `word_getBit`
+ 
+ val msb : forall 'a. mword 'a -> bool
+ 
+ declare isabelle target_rep function msb = `Bits.msb`
+ declare hol      target_rep function msb = `words$word_msb`
+ declare ocaml    target_rep function msb = `Lem.word_msb`
++declare pvs      target_rep function msb = `word_msb`
+ 
+ val lsb : forall 'a. mword 'a -> bool
+ 
+ declare isabelle target_rep function lsb = `Bits.lsb`
+ declare hol      target_rep function lsb = `words$word_lsb`
+ declare ocaml    target_rep function lsb = `Lem.word_lsb`
++declare pvs      target_rep function lsb = `word_lsb`
+ 
+-assert {ocaml;hol;isabelle} extract_concat_test :
++assert {ocaml;hol;isabelle;pvs} extract_concat_test :
+   let x : mword ty16 = wordFromNatural 1234 in
+   word_concat ((word_extract 11 15 x) : mword ty5)
+               ((word_concat ((word_extract 4 10 x) : mword ty7)
+                             ((word_extract 0 3 x) : mword ty4)) : mword ty11)
+                = x
+-assert {ocaml;hol;isabelle} update_test :
++assert {ocaml;hol;isabelle;pvs} update_test :
+   let x : mword ty16 = wordFromNatural 1234 in
+   let y : mword ty8 = wordFromNatural 41 in
+   word_update x 1 8 y = wordFromNatural 1106
+-assert {ocaml;hol;isabelle} setBit_test1 : setBit (wordFromNatural 12 : mword ty8) 1  true = wordFromNatural 14
+-assert {ocaml;hol;isabelle} setBit_test2 : setBit (wordFromNatural 14 : mword ty8) 1 false = wordFromNatural 12
+-assert {ocaml;hol;isabelle} setBit_test3 : setBit (wordFromNatural 2 : mword ty8) 1 false = wordFromNatural 0
+-assert {ocaml;hol;isabelle} getBit_test  : getBit (wordFromNatural 3 : mword ty8) 1 = true
++assert {ocaml;hol;isabelle;pvs} setBit_test1 : setBit (wordFromNatural 12 : mword ty8) 1  true = wordFromNatural 14
++assert {ocaml;hol;isabelle;pvs} setBit_test2 : setBit (wordFromNatural 14 : mword ty8) 1 false = wordFromNatural 12
++assert {ocaml;hol;isabelle;pvs} setBit_test3 : setBit (wordFromNatural 2 : mword ty8) 1 false = wordFromNatural 0
++assert {ocaml;hol;isabelle;pvs} getBit_test  : getBit (wordFromNatural 3 : mword ty8) 1 = true
+ 
+ (******************************************************************)
+ (* Bitwise operations, shifts, etc.                               *)
+@@ -1291,60 +1317,69 @@
+ declare isabelle target_rep function shiftLeft = infix `<<`
+ declare hol      target_rep function shiftLeft = `words$word_lsl`
+ declare ocaml    target_rep function shiftLeft = `Lem.word_shiftLeft`
++declare pvs      target_rep function shiftLeft = `word_shiftLeft`
+ 
+ val shiftRight : forall 'a. mword 'a -> nat -> mword 'a
+ 
+ declare isabelle target_rep function shiftRight = infix `>>`
+ declare hol      target_rep function shiftRight = `words$word_lsr`
+ declare ocaml    target_rep function shiftRight = `Lem.word_shiftRight`
++declare pvs      target_rep function shiftRight = `word_shiftRight`
+ 
+ val arithShiftRight : forall 'a. mword 'a -> nat -> mword 'a
+ 
+ declare isabelle target_rep function arithShiftRight = infix `>>>`
+ declare hol      target_rep function arithShiftRight = `words$word_asr`
+ declare ocaml    target_rep function arithShiftRight = `Lem.word_arithShiftRight`
++declare pvs      target_rep function arithShiftRight = `word_arithShiftRight`
+ 
+ val lAnd       : forall 'a. mword 'a -> mword 'a -> mword 'a
+ 
+ declare isabelle target_rep function lAnd = `Bits.bitAND`
+ declare hol      target_rep function lAnd = `words$word_and`
+ declare ocaml    target_rep function lAnd = `Lem.word_and`
++declare pvs      target_rep function lAnd = `mword_and`
+ 
+ val lOr        : forall 'a. mword 'a -> mword 'a -> mword 'a
+ 
+ declare isabelle target_rep function lOr = `Bits.bitOR`
+ declare hol      target_rep function lOr = `words$word_or`
+ declare ocaml    target_rep function lOr = `Lem.word_or`
++declare pvs      target_rep function lOr = `mword_or`
+ 
+ val lXor       : forall 'a. mword 'a -> mword 'a -> mword 'a
+ 
+ declare isabelle target_rep function lXor = `Bits.bitXOR`
+ declare hol      target_rep function lXor = `words$word_xor`
+ declare ocaml    target_rep function lXor = `Lem.word_xor`
++declare pvs      target_rep function lXor = `mword_xor`
+ 
+ val lNot       : forall 'a. mword 'a -> mword 'a
+ 
+ declare isabelle target_rep function lNot = `Bits.bitNOT`
+ declare hol      target_rep function lNot = `words$word_1comp`
+ declare ocaml    target_rep function lNot = `Lem.word_not`
++declare pvs      target_rep function lNot = `mword_not`
+ 
+ val rotateRight : forall 'a. nat -> mword 'a -> mword 'a
+ 
+ declare isabelle target_rep function rotateRight = `Word.word_rotr`
+ declare hol      target_rep function rotateRight i w = `words$word_ror` w i
+ declare ocaml    target_rep function rotateRight = `Lem.word_ror`
++declare pvs      target_rep function rotateRight = `word_ror`
+ 
+ val rotateLeft : forall 'a. nat -> mword 'a -> mword 'a
+ 
+ declare isabelle target_rep function rotateLeft = `Word.word_rotl`
+ declare hol      target_rep function rotateLeft i w = `words$word_rol` w i
+ declare ocaml    target_rep function rotateLeft = `Lem.word_rol`
++declare pvs      target_rep function rotateLeft = `word_rol`
+ 
+ val zeroExtend : forall 'a 'b. Size 'b => mword 'a -> mword 'b
+ 
+ declare isabelle target_rep function zeroExtend = `Word.ucast`
+ declare hol      target_rep function zeroExtend = `words$w2w`
+-let {ocaml} zeroExtend x = wordFromNatural (naturalFromWord x)
++let {ocaml;pvs} zeroExtend x = wordFromNatural (naturalFromWord x)
+ 
+ val signExtend : forall 'a 'b. Size 'b => mword 'a -> mword 'b
+ 
+@@ -1352,18 +1387,18 @@
+ declare hol      target_rep function signExtend = `words$sw2sw`
+ (* ocaml after definition for wordFromInteger *)
+ 
+-assert {ocaml;hol;isabelle} shift_test1 : shiftLeft (wordFromNatural 5 : mword ty8) 2 = wordFromNatural 20
+-assert {ocaml;hol;isabelle} shift_test2 : shiftRight (wordFromNatural 5 : mword ty8) 2 = wordFromNatural 1
+-assert {ocaml;hol;isabelle} shift_test3 : shiftRight (wordFromNatural 129 : mword ty8) 2 = wordFromNatural 32
+-assert {ocaml;hol;isabelle} shift_test4 : arithShiftRight (wordFromNatural 129 : mword ty8) 2 = wordFromNatural 224
+-assert {ocaml;hol;isabelle} and_test : lAnd (wordFromNatural 5) (wordFromNatural 36) = (wordFromNatural 4 : mword ty8)
+-assert {ocaml;hol;isabelle} or_test  : lOr  (wordFromNatural 5) (wordFromNatural 36) = (wordFromNatural 37 : mword ty8)
+-assert {ocaml;hol;isabelle} xor_test : lXor (wordFromNatural 5) (wordFromNatural 36) = (wordFromNatural 33 : mword ty8)
+-assert {ocaml;hol;isabelle} not_test : lNot (wordFromNatural 37) = (wordFromNatural 218 : mword ty8)
+-assert {ocaml;hol;isabelle} rotateR_test : rotateRight 3 (wordFromNatural 37) = (wordFromNatural 164 : mword ty8)
+-assert {ocaml;hol;isabelle} rotateL_test : rotateLeft 3 (wordFromNatural 37) = (wordFromNatural 41 : mword ty8)
+-assert {ocaml;hol;isabelle} zext_test_0 : zeroExtend (wordFromNatural 130 : mword ty8) = (wordFromNatural 130 : mword ty16)
+-assert {ocaml;hol;isabelle} zext_test_1 : zeroExtend (wordFromNatural 130 : mword ty8) = (wordFromNatural 2 : mword ty7)
++assert {ocaml;hol;isabelle;pvs} shift_test1 : shiftLeft (wordFromNatural 5 : mword ty8) 2 = wordFromNatural 20
++assert {ocaml;hol;isabelle;pvs} shift_test2 : shiftRight (wordFromNatural 5 : mword ty8) 2 = wordFromNatural 1
++assert {ocaml;hol;isabelle;pvs} shift_test3 : shiftRight (wordFromNatural 129 : mword ty8) 2 = wordFromNatural 32
++assert {ocaml;hol;isabelle;pvs} shift_test4 : arithShiftRight (wordFromNatural 129 : mword ty8) 2 = wordFromNatural 224
++assert {ocaml;hol;isabelle;pvs} and_test : lAnd (wordFromNatural 5) (wordFromNatural 36) = (wordFromNatural 4 : mword ty8)
++assert {ocaml;hol;isabelle;pvs} or_test  : lOr  (wordFromNatural 5) (wordFromNatural 36) = (wordFromNatural 37 : mword ty8)
++assert {ocaml;hol;isabelle;pvs} xor_test : lXor (wordFromNatural 5) (wordFromNatural 36) = (wordFromNatural 33 : mword ty8)
++assert {ocaml;hol;isabelle;pvs} not_test : lNot (wordFromNatural 37) = (wordFromNatural 218 : mword ty8)
++assert {ocaml;hol;isabelle;pvs} rotateR_test : rotateRight 3 (wordFromNatural 37) = (wordFromNatural 164 : mword ty8)
++assert {ocaml;hol;isabelle;pvs} rotateL_test : rotateLeft 3 (wordFromNatural 37) = (wordFromNatural 41 : mword ty8)
++assert {ocaml;hol;isabelle;pvs} zext_test_0 : zeroExtend (wordFromNatural 130 : mword ty8) = (wordFromNatural 130 : mword ty16)
++assert {ocaml;hol;isabelle;pvs} zext_test_1 : zeroExtend (wordFromNatural 130 : mword ty8) = (wordFromNatural 2 : mword ty7)
+ 
+ (* Sign extension tests are below, after the definition of wordFromInteger *)
+ 
+@@ -1376,24 +1411,28 @@
+ declare isabelle target_rep function plus = infix `+`
+ declare hol      target_rep function plus = `words$word_add`
+ declare ocaml    target_rep function plus = `Lem.word_plus`
++declare pvs      target_rep function plus = `mword_add`
+ 
+ val minus  : forall 'a. mword 'a -> mword 'a -> mword 'a
+ 
+ declare isabelle target_rep function minus = infix `-`
+ declare hol      target_rep function minus = `words$word_sub`
+ declare ocaml     target_rep function minus = `Lem.word_minus`
++declare pvs      target_rep function minus = `mword_minus`
+ 
+ val uminus : forall 'a. mword 'a -> mword 'a
+ 
+ declare isabelle target_rep function uminus w = `-` w
+ declare hol      target_rep function uminus   = `words$word_2comp`
+ declare ocaml    target_rep function uminus   = `Lem.word_uminus`
++declare pvs      target_rep function uminus = `mword_neg`
+ 
+ val times : forall 'a. mword 'a -> mword 'a -> mword 'a
+ 
+ declare isabelle target_rep function times = infix `*`
+ declare hol      target_rep function times = `words$word_mul`
+ declare ocaml    target_rep function times = `Lem.word_times`
++declare pvs      target_rep function times = `mword_mult`
+ 
+ val unsignedDivide : forall 'a. mword 'a -> mword 'a -> mword 'a
+ val signedDivide : forall 'a. mword 'a -> mword 'a -> mword 'a
+@@ -1401,7 +1440,10 @@
+ declare isabelle target_rep function unsignedDivide = infix `div`
+ declare hol      target_rep function unsignedDivide = `words$word_div`
+ declare ocaml    target_rep function unsignedDivide = `Lem.word_udiv`
++declare pvs      target_rep function unsignedDivide = `mword_udiv`
++
+ declare hol      target_rep function signedDivide   = `words$word_quot`
++declare pvs      target_rep function signedDivide   = `mword_div`
+ 
+ let {isabelle;ocaml} signedDivide x y =
+     if msb x then
+@@ -1415,43 +1457,44 @@
+ declare isabelle target_rep function modulo = infix `mod`
+ declare hol      target_rep function modulo = `words$word_mod`
+ declare ocaml    target_rep function modulo = `Lem.word_mod`
++declare pvs      target_rep function modulo = `mword_mod`
+ 
+ (* Now we can define wordFromInteger for OCaml *)
+ 
+-let {ocaml} wordFromInteger i =
++let {ocaml;pvs} wordFromInteger i =
+     if i < 0
+     then uminus (wordFromNatural (naturalFromInteger (~i)))
+     else wordFromNatural (naturalFromInteger i)
+ 
+-let {ocaml} signExtend x = wordFromInteger (signedIntegerFromWord x)
++let {ocaml;pvs} signExtend x = wordFromInteger (signedIntegerFromWord x)
+ 
+ 
+-assert {ocaml;hol;isabelle} wordFromInteger_nat_test1 : ((wordFromInteger 42) : mword ty8) = wordFromNatural 42
+-assert {ocaml;hol;isabelle} wordFromInteger_nat_test2 : ((wordFromInteger (~42)) : mword ty8) = uminus (wordFromNatural 42)
++assert {ocaml;hol;isabelle;pvs} wordFromInteger_nat_test1 : ((wordFromInteger 42) : mword ty8) = wordFromNatural 42
++assert {ocaml;hol;isabelle;pvs} wordFromInteger_nat_test2 : ((wordFromInteger (~42)) : mword ty8) = uminus (wordFromNatural 42)
+ 
+-assert {ocaml;hol;isabelle} plus_test : plus (wordFromInteger (~5) : mword ty8) (wordFromNatural 2) = wordFromInteger (~3)
+-assert {ocaml;hol;isabelle} minus_test : minus (wordFromInteger (~5) : mword ty8) (wordFromNatural 2) = wordFromInteger (~7)
+-assert {ocaml;hol;isabelle} times_test : times (wordFromInteger (~5) : mword ty8) (wordFromNatural 2) = wordFromInteger (~10)
+-assert {ocaml;hol;isabelle} udiv_test : unsignedDivide (wordFromInteger (~5) : mword ty8) (wordFromNatural 2) = wordFromInteger 125
+-assert {ocaml;hol;isabelle} sdiv_test : signedDivide (wordFromInteger (~5) : mword ty8) (wordFromNatural 2) = wordFromInteger 254
++assert {ocaml;hol;isabelle;pvs} plus_test : plus (wordFromInteger (~5) : mword ty8) (wordFromNatural 2) = wordFromInteger (~3)
++assert {ocaml;hol;isabelle;pvs} minus_test : minus (wordFromInteger (~5) : mword ty8) (wordFromNatural 2) = wordFromInteger (~7)
++assert {ocaml;hol;isabelle;pvs} times_test : times (wordFromInteger (~5) : mword ty8) (wordFromNatural 2) = wordFromInteger (~10)
++assert {ocaml;hol;isabelle;pvs} udiv_test : unsignedDivide (wordFromInteger (~5) : mword ty8) (wordFromNatural 2) = wordFromInteger 125
++assert {ocaml;hol;isabelle;pvs} sdiv_test : signedDivide (wordFromInteger (~5) : mword ty8) (wordFromNatural 2) = wordFromInteger 254
+ 
+ 
+ (* Comparison tests, which need wordFromInteger *)
+ 
+-assert {ocaml;hol;isabelle} signedLess_test_1 : signedLess (wordFromInteger (~5)) ((wordFromInteger 3) : mword ty8)
+-assert {ocaml;hol;isabelle} signedLess_test_2 : signedLess (wordFromInteger 3) ((wordFromInteger 5) : mword ty8)
+-assert {ocaml;hol;isabelle} signedLess_test_3 : not (signedLess (wordFromInteger 3) ((wordFromInteger 3) : mword ty8))
+-assert {ocaml;hol;isabelle} signedLessEq_test_1 : signedLessEq (wordFromInteger (~5)) ((wordFromInteger 3) : mword ty8)
+-assert {ocaml;hol;isabelle} signedLessEq_test_2 : signedLessEq (wordFromInteger 3) ((wordFromInteger 5) : mword ty8)
+-assert {ocaml;hol;isabelle} signedLessEq_test_3 : signedLessEq (wordFromInteger 3) ((wordFromInteger 3) : mword ty8)
+-assert {ocaml;hol;isabelle} unsignedLess_test_1 : unsignedLess (wordFromInteger 3) ((wordFromInteger 5) : mword ty8)
+-assert {ocaml;hol;isabelle} unsignedLess_test_2 : unsignedLess (wordFromInteger 3) ((wordFromInteger 255) : mword ty8)
+-assert {ocaml;hol;isabelle} unsignedLess_test_3 : not (unsignedLess (wordFromInteger 255) ((wordFromInteger 255) : mword ty8))
+-assert {ocaml;hol;isabelle} unsignedLessEq_test_1 : unsignedLessEq (wordFromInteger 3) ((wordFromInteger 5) : mword ty8)
+-assert {ocaml;hol;isabelle} unsignedLessEq_test_2 : unsignedLessEq (wordFromInteger 3) ((wordFromInteger 255) : mword ty8)
+-assert {ocaml;hol;isabelle} unsignedLessEq_test_3 : unsignedLessEq (wordFromInteger 255) ((wordFromInteger 255) : mword ty8)
++assert {ocaml;hol;isabelle;pvs} signedLess_test_1 : signedLess (wordFromInteger (~5)) ((wordFromInteger 3) : mword ty8)
++assert {ocaml;hol;isabelle;pvs} signedLess_test_2 : signedLess (wordFromInteger 3) ((wordFromInteger 5) : mword ty8)
++assert {ocaml;hol;isabelle;pvs} signedLess_test_3 : not (signedLess (wordFromInteger 3) ((wordFromInteger 3) : mword ty8))
++assert {ocaml;hol;isabelle;pvs} signedLessEq_test_1 : signedLessEq (wordFromInteger (~5)) ((wordFromInteger 3) : mword ty8)
++assert {ocaml;hol;isabelle;pvs} signedLessEq_test_2 : signedLessEq (wordFromInteger 3) ((wordFromInteger 5) : mword ty8)
++assert {ocaml;hol;isabelle;pvs} signedLessEq_test_3 : signedLessEq (wordFromInteger 3) ((wordFromInteger 3) : mword ty8)
++assert {ocaml;hol;isabelle;pvs} unsignedLess_test_1 : unsignedLess (wordFromInteger 3) ((wordFromInteger 5) : mword ty8)
++assert {ocaml;hol;isabelle;pvs} unsignedLess_test_2 : unsignedLess (wordFromInteger 3) ((wordFromInteger 255) : mword ty8)
++assert {ocaml;hol;isabelle;pvs} unsignedLess_test_3 : not (unsignedLess (wordFromInteger 255) ((wordFromInteger 255) : mword ty8))
++assert {ocaml;hol;isabelle;pvs} unsignedLessEq_test_1 : unsignedLessEq (wordFromInteger 3) ((wordFromInteger 5) : mword ty8)
++assert {ocaml;hol;isabelle;pvs} unsignedLessEq_test_2 : unsignedLessEq (wordFromInteger 3) ((wordFromInteger 255) : mword ty8)
++assert {ocaml;hol;isabelle;pvs} unsignedLessEq_test_3 : unsignedLessEq (wordFromInteger 255) ((wordFromInteger 255) : mword ty8)
+ 
+ (* sign extend tests *)
+ 
+-assert {ocaml;hol;isabelle} sext_test_0 : signExtend (wordFromNatural 130 : mword ty8) = (wordFromInteger (~126) : mword ty16)
+-assert {ocaml;hol;isabelle} sext_test_1 : signExtend (wordFromNatural 130 : mword ty8) = (wordFromInteger 2 : mword ty7)
++assert {ocaml;hol;isabelle;pvs} sext_test_0 : signExtend (wordFromNatural 130 : mword ty8) = (wordFromInteger (~126) : mword ty16)
++assert {ocaml;hol;isabelle;pvs} sext_test_1 : signExtend (wordFromNatural 130 : mword ty8) = (wordFromInteger 2 : mword ty7)
+diff -Naur ../lem/library/map_extra.lem ../lem_ext/library/map_extra.lem
+--- ../lem/library/map_extra.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/map_extra.lem	2019-03-28 21:35:01.288416437 -0400
+@@ -6,7 +6,7 @@
+ (* Header                                                                     *)
+ (* ========================================================================== *)
+ 
+-declare {isabelle;hol;ocaml;coq} rename module = lem_map_extra
++declare {isabelle;hol;ocaml;coq;pvs} rename module = lem_map_extra
+ 
+ open import Bool Basic_classes Function Assert_extra Maybe List Num Set Map
+ 
+@@ -20,6 +20,7 @@
+ declare ocaml    target_rep function find = `Pmap.find`
+ declare isabelle target_rep function find = `map_find`
+ declare hol      target_rep function find k m = `FAPPLY` m k
++declare pvs      target_rep function find = `fapply`
+ 
+ declare compile_message find = "find is only defined if the key is found. Use lookup instead and handle the not-found case explicitly."
+ assert find_insert_1: (find 16 (insert (16 : nat) true empty) = true)
+@@ -39,6 +40,7 @@
+ 
+ declare ocaml    target_rep function fromSet = `Pmap.from_set`
+ declare hol      target_rep function fromSet = `FUN_FMAP`
++declare pvs      target_rep function fromSet = `fmap_from_set`
+ 
+ (*
+ assert fromSet_0: (fromSet succ (Set.empty : set nat) = Map.empty)
+@@ -53,6 +55,7 @@
+ let fold f m v = Set_helpers.fold (fun (k, v) r -> f k v r) (Map.toSet m) v
+   
+ declare ocaml    target_rep function fold = `Pmap.fold`
++declare pvs      target_rep function fold = `ffold`
+ 
+ declare compile_message fold = "Map_extra.fold iterates over the elements of the map in a unspecified order"
+ 
+@@ -66,6 +69,7 @@
+ declare ocaml    target_rep function toList = `Pmap.bindings_list`
+ declare coq target_rep function toList = `fmap_elements` (* TODO *)
+ declare hol target_rep function toList = `MAP_TO_LIST`
++declare pvs target_rep function toList = `fmap_to_list`  (* TODO *)
+ declare isabelle target_rep function toList m = `list_of_set` (`LemExtraDefs.map_to_set` m)
+ (* declare compile_message toList = "Map_extra.toList is only defined for the ocaml, isabelle and coq backend" *)
+ 
+@@ -84,6 +88,6 @@
+     Map.empty
+     (toList m)
+ 
+-declare {ocaml;hol;isabelle} rename function mapMaybe = option_map
++declare {ocaml;hol;isabelle;pvs} rename function mapMaybe = option_map
+ declare compile_message toList = "Map_extra.mapMaybe is only defined for the ocaml and coq backend"
+ 
+diff -Naur ../lem/library/map.lem ../lem_ext/library/map.lem
+--- ../lem/library/map.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/map.lem	2019-03-28 21:35:01.288416437 -0400
+@@ -6,17 +6,18 @@
+ (* Header                                                                     *)
+ (* ========================================================================== *)
+ 
+-declare {isabelle;ocaml;hol;coq} rename module = lem_map
++declare {isabelle;ocaml;hol;coq;pvs} rename module = lem_map
+ 
+ open import Bool Basic_classes Function Maybe List Tuple Set Num
+ open import {hol} `finite_mapTheory` `finite_mapLib`
++open import {pvs} `set_extra` `fmap` `fmap_extra`
+ 
+ type map 'k 'v
+ declare ocaml    target_rep type map = `Pmap.map` 
+ declare isabelle target_rep type map = `Map.map` 
+ declare hol      target_rep type map = `fmap`
+ declare coq      target_rep type map = `fmap`
+-
++declare pvs      target_rep type map = `fmap`
+ 
+ 
+ (* -------------------------------------------------------------------------- *)
+@@ -27,7 +28,8 @@
+ val mapEqualBy : forall 'k 'v. ('k -> 'k -> bool) -> ('v -> 'v -> bool) -> map 'k 'v -> map 'k 'v -> bool
+ 
+ declare ocaml target_rep function mapEqualBy eq_k eq_v = `Pmap.equal` eq_v
+-declare coq target_rep function mapEqualBy = `fmap_equal_by`
++declare coq   target_rep function mapEqualBy = `fmap_equal_by`
++declare pvs   target_rep function mapEqualBy = `fequal_by`
+ let inline ~{hol;isabelle} mapEqual = mapEqualBy (=) (=)
+ let inline {hol;isabelle} mapEqual = unsafe_structural_equality
+ 
+@@ -62,6 +64,7 @@
+ declare coq target_rep function empty = `fmap_empty`
+ declare hol target_rep function empty = `FEMPTY`
+ declare isabelle target_rep function empty = `Map.empty`
++declare pvs target_rep function empty = `fempty`
+ 
+ 
+ (* -------------------------------------------------------------------------- *)
+@@ -74,6 +77,7 @@
+ declare ocaml    target_rep function insert = `Pmap.add`
+ (* declare hol      target_rep function insert k v m = `FUPDATE` m (k,v) *)
+ declare hol      target_rep function insert k v m = special "%e |+ (%e, %e)" m k v
++declare pvs      target_rep function insert = `fadd`
+ 
+ declare isabelle target_rep function insert = `map_update`
+ 
+@@ -105,6 +109,7 @@
+ 
+ declare coq target_rep function null = `fmap_is_empty`
+ declare ocaml target_rep function null = `Pmap.is_empty`
++declare pvs   target_rep function null = `is_empty`
+ 
+ assert empty_null: (null (empty : map nat bool))
+ 
+@@ -121,6 +126,7 @@
+ declare isabelle target_rep function lookup k m = ``m k
+ declare hol      target_rep function lookup k m = `FLOOKUP` m k
+ declare ocaml    target_rep function lookup = `Pmap.lookup`
++declare pvs      target_rep function lookup = `flookup`
+ 
+ assert lookup_insert_1: (lookup 16 (insert (16 : nat) true empty) = Just true)
+ assert lookup_insert_2: (lookup 16 (insert 36 false (insert (16 : nat) true empty)) = Just true )
+@@ -168,6 +174,7 @@
+ declare isabelle target_rep function toSet = `map_to_set`
+ declare hol target_rep function toSet = `FMAP_TO_SET`
+ declare coq target_rep function toSet = `id`
++declare pvs target_rep function toSet = `fmap_to_set`
+ 
+ 
+ assert toSet_0: (toSet (empty : map nat bool) = {})
+@@ -182,6 +189,7 @@
+ declare ocaml    target_rep function domain = `Pmap.domain`
+ declare isabelle target_rep function domain = `Map.dom`
+ declare hol      target_rep function domain = `FDOM`
++declare pvs      target_rep function domain = `fdom`
+ declare coq      target_rep function domainBy = `fmap_domain_by`
+ let inline {coq} domain = domainBy setElemCompare
+ 
+@@ -198,6 +206,7 @@
+ declare ocaml    target_rep function rangeBy = `Pmap.range`
+ declare hol      target_rep function range = `FRANGE`
+ declare isabelle target_rep function range = `Map.ran`
++declare pvs      target_rep function range = `frange`
+ declare coq      target_rep function rangeBy = `fmap_range_by`
+ let inline {ocaml;coq} range = rangeBy setElemCompare
+ 
+@@ -238,6 +247,8 @@
+ declare ocaml target_rep function any = `Pmap.exist`
+ declare ocaml target_rep function all = `Pmap.for_all`
+ declare coq      target_rep function all = `fmap_all`
++declare pvs      target_rep function all = `fevery`
++declare pvs      target_rep function any = `fsome`
+ declare isabelle target_rep function any = `map_any`
+ declare isabelle target_rep function all = `map_all`
+ declare hol target_rep function all P = `FEVERY` (uncurry P)
+@@ -263,6 +274,7 @@
+ declare coq      target_rep function deleteBy = `fmap_delete_by`
+ declare ocaml    target_rep function delete = `Pmap.remove`
+ declare isabelle target_rep function delete = `map_remove`
++declare pvs      target_rep function delete = `fremove`
+ declare hol      target_rep function deleteSwap = infix `\\`
+ let inline {hol} delete k m = deleteSwap m k
+ let inline {coq} delete = deleteBy mapKeyCompare
+@@ -277,6 +289,7 @@
+ declare ocaml    target_rep function (union) = `Pmap.union`
+ declare isabelle target_rep function (union) = infix `++`
+ declare hol      target_rep function (union) = `FUNION`
++declare pvs      target_rep function (union) = `funion`
+ 
+ val unions           : forall 'k 'v. MapKeyType 'k => list (map 'k 'v) -> map 'k 'v
+ let inline unions = foldr (union) empty
+@@ -292,6 +305,7 @@
+ declare coq      target_rep function map = `fmap_map`
+ declare ocaml    target_rep function map = `Pmap.map`
+ declare isabelle target_rep function map = `map_image`
++declare pvs      target_rep function map = `fmap_image`
+ 
+ assert map_0 : (map (fun b -> not b) (insert (2:nat) true (insert (3:nat) false empty)) =
+                 insert (2:nat) false (insert (3:nat) true empty))
+@@ -302,6 +316,7 @@
+ declare ocaml    target_rep function mapi = `Pmap.mapi`
+ declare isabelle target_rep function mapi = `map_domain_image`
+ declare compile_message mapi = "Map.mapi is only defined for the ocaml backend"
++declare pvs      target_rep function mapi = `fmap_domain_image`
+ 
+ (* -------------------------------------------------------------------------- *)
+ (* Cardinality                                                                *)
+diff -Naur ../lem/library/maybe_extra.lem ../lem_ext/library/maybe_extra.lem
+--- ../lem/library/maybe_extra.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/maybe_extra.lem	2019-03-28 21:35:01.292416498 -0400
+@@ -3,7 +3,7 @@
+ (*                                                                            *)
+ (******************************************************************************)
+ 
+-declare {isabelle;hol;ocaml;coq} rename module = lem_maybe_extra 
++declare {isabelle;hol;ocaml;coq;pvs} rename module = lem_maybe_extra 
+ 
+ open import Basic_classes Maybe Assert_extra
+ 
+diff -Naur ../lem/library/maybe.lem ../lem_ext/library/maybe.lem
+--- ../lem/library/maybe.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/maybe.lem	2019-03-28 21:35:01.292416498 -0400
+@@ -4,10 +4,14 @@
+ (* It mainly follows the Haskell Maybe-library                                *)
+ (******************************************************************************)
+ 
+-declare {hol;isabelle;ocaml;coq} rename module = lem_maybe 
++declare {hol;isabelle;ocaml;coq;pvs} rename module = lem_maybe 
+ 
+ open import Bool Basic_classes Function
+ 
++open import {coq} `Coq.Strings.Ascii`
++
++open import {pvs} `option`
++
+ (* ========================================================================== *)
+ (* Basic stuff                                                                *)
+ (* ========================================================================== *)
+@@ -20,16 +24,19 @@
+ declare isabelle target_rep type maybe 'a = `option` 'a
+ declare coq      target_rep type maybe 'a = `option` 'a
+ declare ocaml    target_rep type maybe 'a = `option` 'a
++declare pvs      target_rep type maybe 'a = `option` 'a
+ 
+ declare hol      target_rep function Just = `SOME`
+ declare ocaml    target_rep function Just = `Some`
+ declare isabelle target_rep function Just = `Some`
+ declare coq      target_rep function Just = `Some`
++declare pvs      target_rep function Just = `Some`
+ 
+ declare hol      target_rep function Nothing = `NONE`
+ declare ocaml    target_rep function Nothing = `None`
+ declare isabelle target_rep function Nothing = `None`
+ declare coq      target_rep function Nothing = `None`
++declare pvs      target_rep function Nothing = `None`
+ 
+ 
+ val maybeEqual : forall 'a. Eq 'a => maybe 'a -> maybe 'a -> bool
+@@ -44,6 +51,7 @@
+ let inline maybeEqual = maybeEqualBy (=)
+ 
+ declare ocaml target_rep function maybeEqualBy = `Lem.option_equal`
++declare pvs   target_rep function maybeEqualBy = `option_equal`
+ let inline {hol;isabelle} maybeEqual = unsafe_structural_equality
+ 
+ instance forall 'a. Eq 'a => (Eq (maybe 'a))
+diff -Naur ../lem/library/num_extra.lem ../lem_ext/library/num_extra.lem
+--- ../lem/library/num_extra.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/num_extra.lem	2019-03-28 21:35:01.292416498 -0400
+@@ -7,7 +7,7 @@
+ open import Num
+ open import String
+ 
+-declare {hol;isabelle;ocaml;coq} rename module = lem_num_extra
++declare {hol;isabelle;ocaml;coq;pvs} rename module = lem_num_extra
+ 
+ val naturalOfString : string -> natural
+ 
+diff -Naur ../lem/library/num.lem ../lem_ext/library/num.lem
+--- ../lem/library/num.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/num.lem	2019-03-28 22:08:24.059004011 -0400
+@@ -7,12 +7,13 @@
+ (* rename module to clash with existing list modules of targets
+    problem: renaming from inside the module itself! *)
+ 
+-declare {isabelle;ocaml;hol;coq} rename module = lem_num
++declare {isabelle;ocaml;hol;coq;pvs} rename module = lem_num
+ 
+ open import Bool Basic_classes
+ open import {isabelle} `HOL-Word.Word` `Complex_Main`
+ open import {hol} `integerTheory` `intReduce` `wordsTheory` `wordsLib` `ratTheory` `realTheory` `intrealTheory` `transcTheory`
+ open import {coq} `Coq.Numbers.BinNums` `Coq.ZArith.BinInt` `Coq.ZArith.Zpower` `Coq.ZArith.Zdiv` `Coq.ZArith.Zmax` `Coq.Numbers.Natural.Peano.NPeano` `Coq.QArith.Qabs` `Coq.QArith.Qminmax` `Coq.QArith.Qround` `Coq.Reals.ROrderedType` `Coq.Reals.Rbase` `Coq.Reals.Rfunctions`
++open import {pvs} `word`
+ 
+ (* ========================================================================== *)
+ (* Numerals                                                                   *)
+@@ -29,6 +30,7 @@
+ declare hol      target_rep type numeral = `num`
+ declare coq      target_rep type numeral = `nat`
+ declare ocaml    target_rep type numeral = `int` 
++declare pvs      target_rep type numeral = `nat`
+ 
+ class inline ( Numeral 'a ) 
+   val fromNumeral : numeral -> 'a 
+@@ -113,6 +115,7 @@
+ declare isabelle target_rep type nat = `nat` 
+ declare coq      target_rep type nat = `nat`  
+ declare ocaml    target_rep type nat = `int` 
++declare pvs      target_rep type nat = `nat` 
+ 
+ 
+ (* ----------------------- *)
+@@ -126,6 +129,7 @@
+ declare coq      target_rep type natural = `nat`
+ declare ocaml    target_rep type natural = `Nat_big_num.num` 
+ declare tex      target_rep type natural = `$\mathbb{N}$`
++declare pvs      target_rep type natural = `nat`
+ 
+ 
+ (* ----------------------- *)
+@@ -139,6 +143,7 @@
+ declare isabelle target_rep type int = `int` 
+ declare hol      target_rep type int = `int`
+ declare coq      target_rep type int = `Z`
++declare pvs      target_rep type int = `int`
+ 
+ 
+ (* ----------------------- *)
+@@ -153,6 +158,7 @@
+ declare hol      target_rep type integer = `int`
+ declare coq      target_rep type integer = `Z`
+ declare tex      target_rep type integer = `$\mathbb{Z}$`
++declare pvs      target_rep type integer = `int`
+ 
+ (* ----------------------- *)
+ (* bint                    *)
+@@ -166,6 +172,7 @@
+ declare coq      target_rep type int32 = `Z`       (* ???: better type for this in Coq? *)
+ declare isabelle target_rep type int32 = `word` 32
+ declare hol      target_rep type int32 = `word32` 
++declare pvs      target_rep type int32 = `word[32]`
+ 
+ (* 64 bit integers *)
+ type int64
+@@ -173,6 +180,7 @@
+ declare coq      target_rep type int64 = `Z`       (* ???: better type for this in Coq? *)
+ declare isabelle target_rep type int64 = `word` 64
+ declare hol      target_rep type int64 = `word64` 
++declare pvs      target_rep type int64 = `word[64]`
+ 
+ 
+ (* ----------------------- *)
+@@ -186,7 +194,7 @@
+ declare coq      target_rep type rational = `Q` (* ???: better type for this in Coq? *)
+ declare isabelle target_rep type rational = `rat`
+ declare hol      target_rep type rational = `rat` (* ???: better type for this in HOL? *)
+-
++declare pvs      target_rep type rational = `rat`
+ 
+ (* ----------------------- *)
+ (* real                    *)
+@@ -200,7 +208,7 @@
+ declare coq      target_rep type real = `R` (* ???: better type for this in Coq? *)
+ declare isabelle target_rep type real = `real`
+ declare hol      target_rep type real = `real` (* ???: better type for this in HOL? *)
+-
++declare pvs      target_rep type real = `real`
+ 
+ (* ----------------------- *)
+ (* double                  *)
+@@ -213,12 +221,14 @@
+ declare coq      target_rep type float64 = `Q` (* ???: better type for this in Coq? *)
+ declare isabelle target_rep type float64 = `???` (* ???: better type for this in Isa? *)
+ declare hol      target_rep type float64 = `XXX` (* ???: better type for this in HOL? *)
++declare pvs      target_rep type float64 = `real`
+ 
+ type float32
+ declare ocaml    target_rep type float32 = `float`
+ declare coq      target_rep type float32 = `Q` (* ???: better type for this in Coq? *)
+ declare isabelle target_rep type float32 = `???` (* ???: better type for this in Isa? *)
+ declare hol      target_rep type float32 = `XXX` (* ???: better type for this in HOL? *)
++declare pvs      target_rep type float64 = `real`
+ 
+ 
+ (* ========================================================================== *)
+@@ -235,6 +245,7 @@
+ declare ocaml    target_rep function natFromNumeral = ``
+ declare isabelle target_rep function natFromNumeral n = (``n : nat)
+ declare coq      target_rep function natFromNumeral = ``
++declare pvs      target_rep function natFromNumeral = ``
+ 
+ instance (Numeral nat)
+   let fromNumeral n = natFromNumeral n
+@@ -257,25 +268,29 @@
+ declare ocaml    target_rep function natLess = infix `<`
+ declare isabelle target_rep function natLess = infix `<`
+ declare coq      target_rep function natLess = `nat_ltb`
++declare pvs      target_rep function natLess = `nat_lt`
+ 
+ declare hol      target_rep function natLessEqual = infix `<=` 
+ declare ocaml    target_rep function natLessEqual = infix `<=`
+ declare isabelle target_rep function natLessEqual = infix `\<le>`
+ declare coq      target_rep function natLessEqual = `nat_lteb`
++declare pvs      target_rep function natLessEqual = `nat_le` 
+ 
+ declare hol      target_rep function natGreater = infix `>` 
+ declare ocaml    target_rep function natGreater = infix `>`
+ declare isabelle target_rep function natGreater = infix `>`
+ declare coq      target_rep function natGreater = `nat_gtb`
++declare pvs      target_rep function natGreater = `nat_gt` 
+ 
+ declare hol      target_rep function natGreaterEqual = infix `>=` 
+ declare ocaml    target_rep function natGreaterEqual = infix `>=`
+ declare isabelle target_rep function natGreaterEqual = infix `\<ge>`
+ declare coq      target_rep function natGreaterEqual = `nat_gteb`
++declare pvs      target_rep function natGreaterEqual = `nat_ge` 
+ 
+ val natCompare : nat -> nat -> ordering
+ let inline natCompare = defaultCompare
+-let inline {coq; hol; isabelle} natCompare = genericCompare natLess natEq
++let inline {coq; hol; isabelle; pvs} natCompare = genericCompare natLess natEq
+ 
+ instance (Ord nat)
+   let compare = natCompare
+@@ -294,6 +309,7 @@
+ declare ocaml    target_rep function natAdd = infix `+`
+ declare isabelle target_rep function natAdd = infix `+`
+ declare coq      target_rep function natAdd = `Coq.Init.Peano.plus`
++declare pvs      target_rep function natAdd = `nat_add`
+ 
+ instance (NumAdd nat)
+   let (+) = natAdd
+@@ -304,6 +320,7 @@
+ declare ocaml    target_rep function natMinus = `Nat_num.nat_monus`
+ declare isabelle target_rep function natMinus = infix `-`
+ declare coq      target_rep function natMinus = `Coq.Init.Peano.minus`
++declare pvs      target_rep function natMinus = `nat_minus`
+ 
+ instance (NumMinus nat)
+   let (-) = natMinus
+@@ -314,6 +331,7 @@
+ declare hol      target_rep function natSucc = `SUC`
+ declare isabelle target_rep function natSucc = `Suc`
+ declare ocaml    target_rep function natSucc = `succ`
++declare pvs      target_rep function natSucc = `succ`
+ declare coq      target_rep function natSucc = `S`
+ instance (NumSucc nat)
+   let succ = natSucc
+@@ -323,6 +341,7 @@
+ let inline natPred n = n - 1
+ declare hol      target_rep function natPred = `PRE`
+ declare ocaml    target_rep function natPred = `Nat_num.nat_pred`
++declare pvs      target_rep function natPred = `pred`
+ declare coq      target_rep function natPred = `Coq.Init.Peano.pred`
+ instance (NumPred nat)
+   let pred = natPred
+@@ -333,6 +352,7 @@
+ declare ocaml    target_rep function natMult = infix `*`
+ declare isabelle target_rep function natMult = infix `*`
+ declare coq      target_rep function natMult = `Coq.Init.Peano.mult`
++declare pvs      target_rep function natMult = `nat_mult`
+ 
+ instance (NumMult nat)
+   let ( * ) = natMult
+@@ -343,6 +363,7 @@
+ declare ocaml    target_rep function natDiv = infix `/`
+ declare isabelle target_rep function natDiv = infix `div`
+ declare coq      target_rep function natDiv = `Coq.Numbers.Natural.Peano.NPeano.div`
++declare pvs      target_rep function natDiv = `nat_div`
+ 
+ instance ( NumIntegerDivision nat ) 
+   let (div) = natDiv
+@@ -357,6 +378,7 @@
+ declare ocaml    target_rep function natMod = infix `mod`
+ declare isabelle target_rep function natMod = infix `mod`
+ declare coq      target_rep function natMod = `Coq.Numbers.Natural.Peano.NPeano.modulo`
++declare pvs      target_rep function natMod = `nat_mod`
+ 
+ instance ( NumRemainder nat ) 
+   let (mod) = natMod
+@@ -386,6 +408,7 @@
+ declare hol      target_rep function natPow = infix `**`
+ declare isabelle target_rep function natPow = infix `^`
+ declare coq      target_rep function natPow = `nat_power`
++declare pvs      target_rep function natPow = `nat_pow`
+ 
+ instance ( NumPow nat ) 
+   let ( ** ) = natPow
+@@ -397,6 +420,7 @@
+ declare isabelle target_rep function natMin = `min`
+ declare hol      target_rep function natMin = `MIN`
+ declare coq      target_rep function natMin = `nat_min`
++declare pvs      target_rep function natMin = `nat_min`
+ 
+ val natMax : nat -> nat -> nat
+ let inline natMax = defaultMax
+@@ -404,6 +428,7 @@
+ declare ocaml    target_rep function natMax = `max`
+ declare hol      target_rep function natMax = `MAX`
+ declare coq      target_rep function natMax = `nat_max`
++declare pvs      target_rep function natMax = `nat_max`
+ 
+ instance ( OrdMaxMin nat ) 
+   let max = natMax
+@@ -420,6 +445,7 @@
+ declare ocaml    target_rep function naturalFromNumeral = `Nat_big_num.of_int`
+ declare isabelle target_rep function naturalFromNumeral n = (``n : natural)
+ declare coq      target_rep function naturalFromNumeral = ``
++declare pvs      target_rep function naturalFromNumeral = ``
+ 
+ instance (Numeral natural)
+   let fromNumeral n = naturalFromNumeral n
+@@ -443,25 +469,29 @@
+ declare ocaml    target_rep function naturalLess = `Nat_big_num.less`
+ declare isabelle target_rep function naturalLess = infix `<`
+ declare coq      target_rep function naturalLess = `nat_ltb`
++declare pvs      target_rep function naturalLess = `nat_lt` 
+ 
+ declare hol      target_rep function naturalLessEqual = infix `<=` 
+ declare ocaml    target_rep function naturalLessEqual = `Nat_big_num.less_equal`
+ declare isabelle target_rep function naturalLessEqual = infix `\<le>`
+ declare coq      target_rep function naturalLessEqual = `nat_lteb`
++declare pvs      target_rep function naturalLessEqual = `nat_le` 
+ 
+ declare hol      target_rep function naturalGreater = infix `>` 
+ declare ocaml    target_rep function naturalGreater = `Nat_big_num.greater`
+ declare isabelle target_rep function naturalGreater = infix `>`
+ declare coq      target_rep function naturalGreater = `nat_gtb`
++declare pvs      target_rep function naturalGreater = `nat_gt` 
+ 
+ declare hol      target_rep function naturalGreaterEqual = infix `>=` 
+ declare ocaml    target_rep function naturalGreaterEqual = `Nat_big_num.greater_equal`
+ declare isabelle target_rep function naturalGreaterEqual = infix `\<ge>`
+ declare coq      target_rep function naturalGreaterEqual = `nat_gteb`
++declare pvs      target_rep function naturalGreaterEqual = `nat_ge` 
+ 
+ val naturalCompare : natural -> natural -> ordering
+ let inline naturalCompare = defaultCompare
+-let inline {coq; isabelle; hol} naturalCompare = genericCompare naturalLess naturalEq
++let inline {coq; isabelle; hol; pvs} naturalCompare = genericCompare naturalLess naturalEq
+ declare ocaml    target_rep function naturalCompare = `Nat_big_num.compare`
+ 
+ instance (Ord natural)
+@@ -481,6 +511,7 @@
+ declare ocaml    target_rep function naturalAdd = `Nat_big_num.add`
+ declare isabelle target_rep function naturalAdd = infix `+`
+ declare coq      target_rep function naturalAdd = `Coq.Init.Peano.plus`
++declare pvs      target_rep function naturalAdd = `nat_add`
+ 
+ instance (NumAdd natural)
+   let (+) = naturalAdd
+@@ -491,6 +522,7 @@
+ declare ocaml    target_rep function naturalMinus = `Nat_big_num.sub_nat`
+ declare isabelle target_rep function naturalMinus = infix `-`
+ declare coq      target_rep function naturalMinus = `Coq.Init.Peano.minus`
++declare pvs      target_rep function naturalMinus = `nat_minus`
+ 
+ instance (NumMinus natural)
+   let (-) = naturalMinus
+@@ -502,6 +534,8 @@
+ declare isabelle target_rep function naturalSucc = `Suc`
+ declare ocaml    target_rep function naturalSucc = `Nat_big_num.succ`
+ declare coq      target_rep function naturalSucc = `S`
++declare pvs      target_rep function naturalSucc = `succ`
++
+ instance (NumSucc natural)
+   let succ = naturalSucc
+ end
+@@ -511,6 +545,8 @@
+ declare hol      target_rep function naturalPred = `PRE`
+ declare ocaml    target_rep function naturalPred = `Nat_big_num.pred_nat`
+ declare coq      target_rep function naturalPred = `Coq.Init.Peano.pred`
++declare pvs      target_rep function naturalPred = `pred`
++
+ instance (NumPred natural)
+   let pred = naturalPred
+ end
+@@ -520,6 +556,7 @@
+ declare ocaml    target_rep function naturalMult = `Nat_big_num.mul`
+ declare isabelle target_rep function naturalMult = infix `*`
+ declare coq      target_rep function naturalMult = `Coq.Init.Peano.mult`
++declare pvs      target_rep function naturalMult = `nat_mult`
+ 
+ instance (NumMult natural)
+   let ( * ) = naturalMult
+@@ -531,6 +568,7 @@
+ declare ocaml    target_rep function naturalPow = `Nat_big_num.pow_int`
+ declare isabelle target_rep function naturalPow = infix `^`
+ declare coq      target_rep function naturalPow = `nat_power`
++declare pvs      target_rep function naturalPow = `nat_pow`
+ 
+ instance ( NumPow natural ) 
+   let ( ** ) = naturalPow
+@@ -541,6 +579,7 @@
+ declare ocaml    target_rep function naturalDiv = `Nat_big_num.div`
+ declare isabelle target_rep function naturalDiv = infix `div`
+ declare coq      target_rep function naturalDiv = `Coq.Numbers.Natural.Peano.NPeano.div`
++declare pvs      target_rep function naturalDiv = `nat_div`
+ 
+ instance ( NumIntegerDivision natural ) 
+   let (div) = naturalDiv
+@@ -555,6 +594,7 @@
+ declare ocaml    target_rep function naturalMod = `Nat_big_num.modulus`
+ declare isabelle target_rep function naturalMod = infix `mod`
+ declare coq      target_rep function naturalMod = `Coq.Numbers.Natural.Peano.NPeano.modulo`
++declare pvs      target_rep function naturalMod = `nat_mod`
+ 
+ instance ( NumRemainder natural ) 
+   let (mod) = naturalMod
+@@ -566,6 +606,7 @@
+ declare ocaml    target_rep function naturalMin = `Nat_big_num.min`
+ declare hol      target_rep function naturalMin = `MIN`
+ declare coq      target_rep function naturalMin = `nat_min`
++declare pvs      target_rep function naturalMin = `nat_min`
+ 
+ val naturalMax : natural -> natural -> natural
+ let inline naturalMax = defaultMax
+@@ -573,6 +614,7 @@
+ declare ocaml    target_rep function naturalMax = `Nat_big_num.max`
+ declare hol      target_rep function naturalMax = `MAX`
+ declare coq      target_rep function naturalMax = `nat_max`
++declare pvs      target_rep function naturalMax = `nat_max`
+ 
+ instance ( OrdMaxMin natural ) 
+   let max = naturalMax
+@@ -589,6 +631,7 @@
+ declare isabelle target_rep function intFromNumeral n = (``n : int)
+ declare hol      target_rep function intFromNumeral n = (``n : int)
+ declare coq      target_rep function intFromNumeral n = (`Zpred` (`Zpos` (`P_of_succ_nat` n)))
++declare pvs      target_rep function intFromNumeral = ``
+ 
+ instance (Numeral int)
+   let fromNumeral n = intFromNumeral n
+@@ -611,25 +654,33 @@
+ declare ocaml    target_rep function intLess = infix `<`
+ declare isabelle target_rep function intLess = infix `<`
+ declare coq      target_rep function intLess = `int_ltb`
++declare pvs      target_rep function intLess = `int_lt` 
++
+ 
+ declare hol      target_rep function intLessEqual = infix `<=` 
+ declare ocaml    target_rep function intLessEqual = infix `<=`
+ declare isabelle target_rep function intLessEqual = infix `\<le>`
+ declare coq      target_rep function intLessEqual = `int_lteb`
++declare pvs      target_rep function intLessEqual = `int_le` 
++
+ 
+ declare hol      target_rep function intGreater = infix `>` 
+ declare ocaml    target_rep function intGreater = infix `>`
+ declare isabelle target_rep function intGreater = infix `>`
+ declare coq      target_rep function intGreater = `int_gtb`
++declare pvs      target_rep function intGreater = `int_gt` 
++
+ 
+ declare hol      target_rep function intGreaterEqual = infix `>=` 
+ declare ocaml    target_rep function intGreaterEqual = infix `>=`
+ declare isabelle target_rep function intGreaterEqual = infix `\<ge>`
+ declare coq      target_rep function intGreaterEqual = `int_gteb`
++declare pvs      target_rep function intGreaterEqual = `int_ge` 
++
+ 
+ val intCompare : int -> int -> ordering
+ let inline intCompare = defaultCompare
+-let inline {coq; isabelle; hol} intCompare = genericCompare intLess intEq
++let inline {coq; isabelle; hol; pvs} intCompare = genericCompare intLess intEq
+ declare ocaml target_rep function intCompare = `compare`
+ 
+ instance (Ord int)
+@@ -649,6 +700,7 @@
+ declare ocaml    target_rep function intNegate i = (`~-` i)
+ declare isabelle target_rep function intNegate i = `-` i
+ declare coq      target_rep function intNegate i = (`Coq.ZArith.BinInt.Zminus` `Z0` i)
++declare pvs      target_rep function intNegate i = `-` i
+ 
+ instance (NumNegate int)
+   let ~ = intNegate
+@@ -659,6 +711,7 @@
+ declare ocaml    target_rep function intAbs = `abs`
+ declare isabelle target_rep function intAbs = `abs`
+ declare coq      target_rep function intAbs input = (`Zpred` (`Zpos` (`P_of_succ_nat` (`Zabs_nat` input)))) (* TODO: check *)
++declare pvs      target_rep function intAbs = `int_abs`
+ 
+ instance (NumAbs int)
+   let abs = intAbs
+@@ -669,6 +722,8 @@
+ declare ocaml    target_rep function intAdd = infix `+`
+ declare isabelle target_rep function intAdd = infix `+`
+ declare coq      target_rep function intAdd = `Coq.ZArith.BinInt.Zplus`
++declare pvs      target_rep function intAdd = `int_add`
++
+ 
+ instance (NumAdd int)
+   let (+) = intAdd
+@@ -679,6 +734,8 @@
+ declare ocaml    target_rep function intMinus = infix `-`
+ declare isabelle target_rep function intMinus = infix `-`
+ declare coq      target_rep function intMinus = `Coq.ZArith.BinInt.Zminus`
++declare pvs      target_rep function intMinus = `int_minus`
++
+ 
+ instance (NumMinus int)
+   let (-) = intMinus
+@@ -703,6 +760,8 @@
+ declare ocaml    target_rep function intMult = infix `*`
+ declare isabelle target_rep function intMult = infix `*`
+ declare coq      target_rep function intMult = `Coq.ZArith.BinInt.Zmult`
++declare pvs      target_rep function intMult = `int_mult`
++
+ 
+ instance (NumMult int)
+   let ( * ) = intMult
+@@ -714,6 +773,8 @@
+ declare hol      target_rep function intPow = infix `**`
+ declare isabelle target_rep function intPow = infix `^`
+ declare coq      target_rep function intPow = `Coq.ZArith.Zpower.Zpower_nat`
++declare pvs      target_rep function intPow = `int_pow`
++
+ 
+ instance ( NumPow int ) 
+   let ( ** ) = intPow
+@@ -724,6 +785,7 @@
+ declare ocaml    target_rep function intDiv = `Nat_num.int_div`
+ declare isabelle target_rep function intDiv = infix `div`
+ declare coq      target_rep function intDiv = `Coq.ZArith.Zdiv.Zdiv`
++declare pvs      target_rep function intDiv = `int_div`
+ 
+ instance ( NumIntegerDivision int ) 
+   let (div) = intDiv
+@@ -738,6 +800,7 @@
+ declare ocaml    target_rep function intMod = `Nat_num.int_mod`
+ declare isabelle target_rep function intMod = infix `mod`
+ declare coq      target_rep function intMod = `Coq.ZArith.Zdiv.Zmod`
++declare pvs      target_rep function intMod = `int_mod`
+ 
+ instance ( NumRemainder int ) 
+   let (mod) = intMod
+@@ -749,6 +812,7 @@
+ declare ocaml    target_rep function intMin = `min`
+ declare hol      target_rep function intMin = `int_min`
+ declare coq      target_rep function intMin = `Zmin`
++declare pvs      target_rep function intMin = `int_min`
+ 
+ val intMax : int -> int -> int
+ let inline intMax = defaultMax
+@@ -756,6 +820,7 @@
+ declare ocaml    target_rep function intMax = `max`
+ declare hol      target_rep function intMax = `int_max`
+ declare coq      target_rep function intMax = `Zmax`
++declare pvs      target_rep function intMax = `int_max`
+ 
+ instance ( OrdMaxMin int ) 
+   let max = intMax
+@@ -771,6 +836,7 @@
+ declare isabelle target_rep function int32FromNumeral n = ((`word_of_int` n) : int32)
+ declare hol      target_rep function int32FromNumeral n = ((`n2w` n) : int32)
+ declare coq      target_rep function int32FromNumeral n = (`Zpred` (`Zpos` (`P_of_succ_nat` n)))  (* TODO: check *)
++declare pvs      target_rep function int32FromNumeral = `of_nat[32]`
+ 
+ instance (Numeral int32)
+   let fromNumeral n = int32FromNumeral n
+@@ -795,28 +861,32 @@
+ declare hol      target_rep function int32Less = infix `<` 
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int32Less = `int_ltb` 
++declare pvs      target_rep function int32Less = `word_slt[32]`
+ 
+ declare ocaml    target_rep function int32LessEqual = infix `<=`
+ declare isabelle target_rep function int32LessEqual = `word_sle`
+ declare hol      target_rep function int32LessEqual = infix `<=` 
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int32LessEqual = `int_lteb`
++declare pvs      target_rep function int32LessEqual = `word_sle[32]`
+ 
+ declare ocaml    target_rep function int32Greater = infix `>`
+ let inline {isabelle} int32Greater x y = int32Less y x
+ declare hol      target_rep function int32Greater = infix `>` 
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int32Greater = `int_gtb`
++declare pvs      target_rep function int32Greater = `word_sgt[32]` 
+ 
+ declare ocaml    target_rep function int32GreaterEqual = infix `>=`
+ let inline {isabelle} int32GreaterEqual x y = int32LessEqual y x
+ declare hol      target_rep function int32GreaterEqual = infix `>=` 
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int32GreaterEqual = `int_gteb`
++declare pvs      target_rep function int32GreaterEqual = `word_sge[32]` 
+ 
+ val int32Compare : int32 -> int32 -> ordering
+ let inline int32Compare = defaultCompare
+-let inline {coq; isabelle; hol} int32Compare = genericCompare int32Less int32Eq
++let inline {coq; isabelle; hol; pvs} int32Compare = genericCompare int32Less int32Eq
+ declare ocaml target_rep function int32Compare = `Int32.compare`
+ 
+ instance (Ord int32)
+@@ -837,6 +907,7 @@
+ declare hol      target_rep function int32Negate i = ((`-` i) : int32)
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int32Negate i = (`Coq.ZArith.BinInt.Zminus` `Z0` i)
++declare pvs      target_rep function int32Negate = `word_neg[32]`
+ 
+ instance (NumNegate int32)
+   let ~ = int32Negate
+@@ -857,6 +928,8 @@
+ (*TODO: Implement the following two correctly. *)
+ declare hol      target_rep function int32Add i1 i2 = ((`word_add` i1 i2) : int32)
+ declare coq      target_rep function int32Add = `Coq.ZArith.BinInt.Zplus`
++declare pvs      target_rep function int32Add = `word_add[32]`
++
+ 
+ instance (NumAdd int32)
+   let (+) = int32Add
+@@ -868,6 +941,8 @@
+ (*TODO: Implement the following two correctly. *)
+ declare hol      target_rep function int32Minus i1 i2 = ((`word_sub` i1 i2) : int32)
+ declare coq      target_rep function int32Minus = `Coq.ZArith.BinInt.Zminus`
++declare pvs      target_rep function int32Minus = `word_minus[32]`
++
+ 
+ instance (NumMinus int32)
+   let (-) = int32Minus
+@@ -894,6 +969,8 @@
+ declare hol      target_rep function int32Mult i1 i2 = ((`word_mul` i1 i2) : int32)
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int32Mult = `Coq.ZArith.BinInt.Zmult`
++declare pvs      target_rep function int32Mult = `word_mult[32]`
++
+ 
+ instance (NumMult int32)
+   let ( * ) = int32Mult
+@@ -905,6 +982,8 @@
+ declare isabelle target_rep function int32Pow = infix `^`
+ (*TODO: Implement the following two correctly. *)
+ declare coq      target_rep function int32Pow = `Coq.ZArith.Zpower.Zpower_nat`
++declare pvs      target_rep function int32Pow = `word_pow[32]`
++
+ 
+ instance ( NumPow int32 ) 
+   let ( ** ) = int32Pow
+@@ -916,6 +995,7 @@
+ declare hol      target_rep function int32Div i1 i2 = ((`word_div` i1 i2) : int32)
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int32Div = `Coq.ZArith.Zdiv.Zdiv`
++declare pvs      target_rep function int32Div = `word_div[32]`
+ 
+ instance ( NumIntegerDivision int32 ) 
+   let (div) = int32Div
+@@ -931,6 +1011,7 @@
+ declare hol      target_rep function int32Mod i1 i2 = ((`word_mod` i1 i2) : int32)
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int32Mod = `Coq.ZArith.Zdiv.Zmod`
++declare pvs      target_rep function int32Mod = `word_mod[32]`
+ 
+ instance ( NumRemainder int32 ) 
+   let (mod) = int32Mod
+@@ -941,12 +1022,14 @@
+ declare hol      target_rep function int32Min = `word_smin`
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int32Min = `Zmin`
++declare pvs      target_rep function int32Min = `word_smin[32]`
+ 
+ val int32Max : int32 -> int32 -> int32
+ let inline int32Max = defaultMax
+ declare hol      target_rep function int32Max = `word_smax`
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int32Max = `Zmax`
++declare pvs      target_rep function int32Max = `word_smax[32]`
+ 
+ instance ( OrdMaxMin int32 ) 
+   let max = int32Max
+@@ -964,6 +1047,7 @@
+ declare isabelle target_rep function int64FromNumeral n = ((`word_of_int` n) : int64)
+ declare hol      target_rep function int64FromNumeral n = ((`n2w` n) : int64)
+ declare coq      target_rep function int64FromNumeral n = (`Zpred` (`Zpos` (`P_of_succ_nat` n)))  (* TODO: check *)
++declare pvs      target_rep function int64FromNumeral = `of_nat[64]`
+ 
+ instance (Numeral int64)
+   let fromNumeral n = int64FromNumeral n
+@@ -988,28 +1072,32 @@
+ declare hol      target_rep function int64Less = infix `<` 
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int64Less = `int_ltb` 
++declare pvs      target_rep function int64Less = `word_slt[64]` 
+ 
+ declare ocaml    target_rep function int64LessEqual = infix `<=`
+ declare isabelle target_rep function int64LessEqual = `word_sle`
+ declare hol      target_rep function int64LessEqual = infix `<=` 
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int64LessEqual = `int_lteb`
++declare pvs      target_rep function int64LessEqual = `word_sle[64]` 
+ 
+ declare ocaml    target_rep function int64Greater = infix `>`
+ let inline {isabelle} int64Greater x y = int64Less y x
+ declare hol      target_rep function int64Greater = infix `>` 
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int64Greater = `int_gtb`
++declare pvs      target_rep function int64Greater = `word_sgt[64]` 
+ 
+ declare ocaml    target_rep function int64GreaterEqual = infix `>=`
+ let inline {isabelle} int64GreaterEqual x y = int64LessEqual y x
+ declare hol      target_rep function int64GreaterEqual = infix `>=` 
+ (*TODO: Implement the following correctly. *)
+ declare coq      target_rep function int64GreaterEqual = `int_gteb`
++declare pvs      target_rep function int64GreaterEqual = `word_sge[64]` 
+ 
+ val int64Compare : int64 -> int64 -> ordering
+ let inline int64Compare = defaultCompare
+-let inline {coq; isabelle; hol} int64Compare = genericCompare int64Less int64Eq
++let inline {coq; isabelle; hol; pvs} int64Compare = genericCompare int64Less int64Eq
+ declare ocaml target_rep function int64Compare = `Int64.compare`
+ 
+ instance (Ord int64)
+@@ -1030,6 +1118,7 @@
+ declare hol      target_rep function int64Negate i = ((`-` i) : int64)
+ (*TODO: Implement the following one correctly. *)
+ declare coq      target_rep function int64Negate i = (`Coq.ZArith.BinInt.Zminus` `Z0` i)
++declare pvs      target_rep function int64Negate = `word_neg[64]`
+ 
+ instance (NumNegate int64)
+   let ~ = int64Negate
+@@ -1050,6 +1139,8 @@
+ declare hol      target_rep function int64Add i1 i2 = ((`word_add` i1 i2) : int64)
+ (*TODO: Implement the following one correctly. *)
+ declare coq      target_rep function int64Add = `Coq.ZArith.BinInt.Zplus`
++declare pvs      target_rep function int64Add = `word_add[64]`
++
+ 
+ instance (NumAdd int64)
+   let (+) = int64Add
+@@ -1061,6 +1152,8 @@
+ declare hol      target_rep function int64Minus i1 i2 = ((`word_sub` i1 i2) : int64)
+ (*TODO: Implement the following one correctly. *)
+ declare coq      target_rep function int64Minus = `Coq.ZArith.BinInt.Zminus`
++declare pvs      target_rep function int64Minus = `word_minus[64]`
++
+ 
+ instance (NumMinus int64)
+   let (-) = int64Minus
+@@ -1087,6 +1180,8 @@
+ declare hol      target_rep function int64Mult i1 i2 = ((`word_mul` i1 i2) : int64)
+ (*TODO: Implement the following one correctly. *)
+ declare coq      target_rep function int64Mult = `Coq.ZArith.BinInt.Zmult`
++declare pvs      target_rep function int64Mult = `word_mult[64]`
++
+ 
+ instance (NumMult int64)
+   let ( * ) = int64Mult
+@@ -1098,6 +1193,8 @@
+ declare isabelle target_rep function int64Pow = infix `^`
+ (*TODO: Implement the following one correctly. *)
+ declare coq      target_rep function int64Pow = `Coq.ZArith.Zpower.Zpower_nat`
++declare pvs      target_rep function int64Pow = `word_pow[64]`
++
+ 
+ instance ( NumPow int64 ) 
+   let ( ** ) = int64Pow
+@@ -1109,6 +1206,7 @@
+ (*TODO: Implement the following two correctly. *)
+ declare hol      target_rep function int64Div i1 i2 = ((`word_div` i1 i2) : int64)
+ declare coq      target_rep function int64Div = `Coq.ZArith.Zdiv.Zdiv`
++declare pvs      target_rep function int64Div = `word_div[64]`
+ 
+ instance ( NumIntegerDivision int64 ) 
+   let (div) = int64Div
+@@ -1124,6 +1222,7 @@
+ (*TODO: Implement the following two correctly. *)
+ declare hol      target_rep function int64Mod i1 i2 = ((`word_mod` i1 i2) : int64)
+ declare coq      target_rep function int64Mod = `Coq.ZArith.Zdiv.Zmod`
++declare pvs      target_rep function int64Mod = `word_mod[64]`
+ 
+ instance ( NumRemainder int64 ) 
+   let (mod) = int64Mod
+@@ -1134,12 +1233,14 @@
+ declare hol      target_rep function int64Min = `word_smin`
+ (*TODO: Implement the following one correctly. *)
+ declare coq      target_rep function int64Min = `Zmin`
++declare pvs      target_rep function int64Min = `word_smin[64]`
+ 
+ val int64Max : int64 -> int64 -> int64
+ let inline int64Max = defaultMax
+ declare hol      target_rep function int64Max = `word_smax`
+ (*TODO: Implement the following one correctly. *)
+ declare coq      target_rep function int64Max = `Zmax`
++declare pvs      target_rep function int64Max = `word_smax[64]`
+ 
+ instance ( OrdMaxMin int64 ) 
+   let max = int64Max
+@@ -1156,6 +1257,7 @@
+ declare isabelle target_rep function integerFromNumeral n = (``n : integer)
+ declare hol      target_rep function integerFromNumeral n = (``n : integer)
+ declare coq      target_rep function integerFromNumeral n = (`Zpred` (`Zpos` (`P_of_succ_nat` n)))
++declare pvs      target_rep function integerFromNumeral = ``
+ 
+ instance (Numeral integer)
+   let fromNumeral n = integerFromNumeral n
+@@ -1166,6 +1268,7 @@
+ declare ocaml    target_rep function integerFromNat = `Nat_big_num.of_int`
+ declare isabelle target_rep function integerFromNat = `int`
+ declare coq      target_rep function integerFromNat n = (`Zpred` (`Zpos` (`P_of_succ_nat` n))) (* TODO: check *)
++declare pvs      target_rep function integerFromNat = ``
+ 
+ val integerEq : integer -> integer -> bool
+ let inline integerEq = unsafe_structural_equality
+@@ -1185,25 +1288,33 @@
+ declare ocaml    target_rep function integerLess = `Nat_big_num.less`
+ declare isabelle target_rep function integerLess = infix `<`
+ declare coq      target_rep function integerLess = `int_ltb`
++declare pvs      target_rep function integerLess = `int_lt` 
++
+ 
+ declare hol      target_rep function integerLessEqual = infix `<=` 
+ declare ocaml    target_rep function integerLessEqual = `Nat_big_num.less_equal`
+ declare isabelle target_rep function integerLessEqual = infix `\<le>`
+ declare coq      target_rep function integerLessEqual = `int_lteb`
++declare pvs      target_rep function integerLessEqual = `int_le` 
++
+ 
+ declare hol      target_rep function integerGreater = infix `>` 
+ declare ocaml    target_rep function integerGreater = `Nat_big_num.greater`
+ declare isabelle target_rep function integerGreater = infix `>`
+ declare coq      target_rep function integerGreater = `int_gtb`
++declare pvs      target_rep function integerGreater = `int_gt` 
++
+ 
+ declare hol      target_rep function integerGreaterEqual = infix `>=` 
+ declare ocaml    target_rep function integerGreaterEqual = `Nat_big_num.greater_equal`
+ declare isabelle target_rep function integerGreaterEqual = infix `\<ge>`
+ declare coq      target_rep function integerGreaterEqual = `int_gteb`
++declare pvs      target_rep function integerGreaterEqual = `int_ge` 
++
+ 
+ val integerCompare : integer -> integer -> ordering
+ let inline integerCompare = defaultCompare
+-let inline {coq; isabelle; hol} integerCompare = genericCompare integerLess integerEq
++let inline {coq; isabelle; hol; pvs} integerCompare = genericCompare integerLess integerEq
+ declare ocaml    target_rep function integerCompare = `Nat_big_num.compare`
+ 
+ instance (Ord integer)
+@@ -1223,6 +1334,7 @@
+ declare ocaml    target_rep function integerNegate = `Nat_big_num.negate`
+ declare isabelle target_rep function integerNegate i = `-` i
+ declare coq      target_rep function integerNegate i = (`Coq.ZArith.BinInt.Zminus` `Z0` i)
++declare pvs      target_rep function integerNegate i = `-` i
+ 
+ instance (NumNegate integer)
+   let ~ = integerNegate
+@@ -1233,6 +1345,7 @@
+ declare ocaml    target_rep function integerAbs = `Nat_big_num.abs`
+ declare isabelle target_rep function integerAbs = `abs`
+ declare coq      target_rep function integerAbs input = (`Zpred` (`Zpos` (`P_of_succ_nat` (`Zabs_nat` input)))) (* TODO: check *)
++declare pvs      target_rep function integerAbs = `int_abs`
+ 
+ instance (NumAbs integer)
+   let abs = integerAbs
+@@ -1243,6 +1356,8 @@
+ declare ocaml    target_rep function integerAdd = `Nat_big_num.add`
+ declare isabelle target_rep function integerAdd = infix `+`
+ declare coq      target_rep function integerAdd = `Coq.ZArith.BinInt.Zplus`
++declare pvs      target_rep function integerAdd = `int_add`
++
+ 
+ instance (NumAdd integer)
+   let (+) = integerAdd
+@@ -1253,6 +1368,8 @@
+ declare ocaml    target_rep function integerMinus = `Nat_big_num.sub`
+ declare isabelle target_rep function integerMinus = infix `-`
+ declare coq      target_rep function integerMinus = `Coq.ZArith.BinInt.Zminus`
++declare pvs      target_rep function integerMinus = `int_minus`
++
+ 
+ instance (NumMinus integer)
+   let (-) = integerMinus
+@@ -1277,6 +1394,8 @@
+ declare ocaml    target_rep function integerMult = `Nat_big_num.mul`
+ declare isabelle target_rep function integerMult = infix `*`
+ declare coq      target_rep function integerMult = `Coq.ZArith.BinInt.Zmult`
++declare pvs      target_rep function integerMult = `int_mult`
++
+ 
+ instance (NumMult integer)
+   let ( * ) = integerMult
+@@ -1288,6 +1407,8 @@
+ declare ocaml    target_rep function integerPow = `Nat_big_num.pow_int`
+ declare isabelle target_rep function integerPow = infix `^`
+ declare coq      target_rep function integerPow = `Coq.ZArith.Zpower.Zpower_nat`
++declare pvs      target_rep function integerPow = `int_pow`
++
+ 
+ instance ( NumPow integer ) 
+   let ( ** ) = integerPow
+@@ -1298,6 +1419,7 @@
+ declare ocaml    target_rep function integerDiv = `Nat_big_num.div`
+ declare isabelle target_rep function integerDiv = infix `div`
+ declare coq      target_rep function integerDiv = `Coq.ZArith.Zdiv.Zdiv`
++declare pvs      target_rep function integerDiv = `int_div`
+ 
+ instance ( NumIntegerDivision integer ) 
+   let (div) = integerDiv
+@@ -1312,6 +1434,7 @@
+ declare ocaml    target_rep function integerMod = `Nat_big_num.modulus`
+ declare isabelle target_rep function integerMod = infix `mod`
+ declare coq      target_rep function integerMod = `Coq.ZArith.Zdiv.Zmod`
++declare pvs      target_rep function integerMod = `int_mod`
+ 
+ instance ( NumRemainder integer ) 
+   let (mod) = integerMod
+@@ -1323,6 +1446,7 @@
+ declare ocaml    target_rep function integerMin = `Nat_big_num.min`
+ declare hol      target_rep function integerMin = `int_min`
+ declare coq      target_rep function integerMin = `Zmin`
++declare pvs      target_rep function integerMin = `int_min`
+ 
+ val integerMax : integer -> integer -> integer
+ let inline integerMax = defaultMax
+@@ -1330,6 +1454,7 @@
+ declare ocaml    target_rep function integerMax = `Nat_big_num.max`
+ declare hol      target_rep function integerMax = `int_max`
+ declare coq      target_rep function integerMax = `Zmax`
++declare pvs      target_rep function integerMax = `int_max`
+ 
+ instance ( OrdMaxMin integer ) 
+   let max = integerMax
+@@ -1347,6 +1472,7 @@
+ declare isabelle target_rep function rationalFromNumeral n = (`Fract` (``n : integer) (1 : integer))
+ declare hol      target_rep function rationalFromNumeral n = (``n : rational)
+ declare coq      target_rep function rationalFromNumeral n = (`inject_Z` (`Zpred` (`Zpos` (`P_of_succ_nat` n))))
++declare pvs      target_rep function rationalFromNumeral = ``
+ 
+ instance (Numeral rational)
+   let fromNumeral n = rationalFromNumeral n
+@@ -1357,12 +1483,14 @@
+ declare isabelle target_rep function rationalFromInt n = (`Fract` n (1 : integer))
+ declare hol      target_rep function rationalFromInt n = (`rat_of_int` n)
+ declare coq      target_rep function rationalFromInt n = (`inject_Z` n)
++declare pvs      target_rep function rationalFromInt = ``
+ 
+ val rationalFromInteger : integer -> rational
+ declare ocaml    target_rep function rationalFromInteger n = (`Rational.of_big_int` n)
+ declare isabelle target_rep function rationalFromInteger n = (`Fract` n (1 : integer))
+ declare hol      target_rep function rationalFromInteger n = (`rat_of_int` n)
+ declare coq      target_rep function rationalFromInteger n = (`inject_Z` n)
++declare pvs      target_rep function rationalFromInteger = ``
+ 
+ val rationalEq : rational -> rational -> bool
+ let inline rationalEq = unsafe_structural_equality
+@@ -1382,25 +1510,33 @@
+ declare ocaml    target_rep function rationalLess = `Rational.lt`
+ declare isabelle target_rep function rationalLess = infix `<`
+ declare coq      target_rep function rationalLess = `Qlt_bool`
++declare pvs      target_rep function rationalLess = `rat_lt`
++
+ 
+ declare hol      target_rep function rationalLessEqual = infix `<=`
+ declare ocaml    target_rep function rationalLessEqual = `Rational.leq`
+ declare isabelle target_rep function rationalLessEqual = infix `\<le>`
+ declare coq      target_rep function rationalLessEqual = `Qle_bool`
++declare pvs      target_rep function rationalLessEqual = `rat_le`
++
+ 
+ declare hol      target_rep function rationalGreater = infix `>`
+ declare ocaml    target_rep function rationalGreater = `Rational.gt`
+ declare isabelle target_rep function rationalGreater = infix `>`
+ declare coq      target_rep function rationalGreater = `Qgt_bool`
++declare pvs      target_rep function rationalGreater = `rat_gt`
++
+ 
+ declare hol      target_rep function rationalGreaterEqual = infix `>=`
+ declare ocaml    target_rep function rationalGreaterEqual = `Rational.geq`
+ declare isabelle target_rep function rationalGreaterEqual = infix `\<ge>`
+ declare coq      target_rep function rationalGreaterEqual = `Qge_bool`
++declare pvs      target_rep function rationalGreaterEqual = `rat_ge`
++
+ 
+ val rationalCompare : rational -> rational -> ordering
+ let inline rationalCompare = defaultCompare
+-let inline {coq; isabelle; hol; ocaml} rationalCompare = genericCompare rationalLess rationalEq
++let inline {coq; isabelle; hol; ocaml; pvs} rationalCompare = genericCompare rationalLess rationalEq
+ 
+ instance (Ord rational)
+   let compare = rationalCompare
+@@ -1419,6 +1555,8 @@
+ declare ocaml    target_rep function rationalAdd = `Rational.add`
+ declare isabelle target_rep function rationalAdd = infix `+`
+ declare coq      target_rep function rationalAdd = `Qplus`
++declare pvs      target_rep function rationalAdd = `rat_add`
++
+ 
+ instance (NumAdd rational)
+   let (+) = rationalAdd
+@@ -1429,6 +1567,8 @@
+ declare ocaml    target_rep function rationalMinus = `Rational.sub`
+ declare isabelle target_rep function rationalMinus = infix `-`
+ declare coq      target_rep function rationalMinus = `Qminus`
++declare pvs      target_rep function rationalMinus = `rat_minus`
++
+ 
+ instance (NumMinus rational)
+   let (-) = rationalMinus
+@@ -1469,6 +1609,8 @@
+ declare ocaml    target_rep function rationalMult = `Rational.mul`
+ declare isabelle target_rep function rationalMult = infix `*`
+ declare coq      target_rep function rationalMult = `Qmult`
++declare pvs      target_rep function rationalMult = `rat_mult`
++
+ 
+ instance (NumMult rational)
+   let ( * ) = rationalMult
+@@ -1479,6 +1621,7 @@
+ declare ocaml    target_rep function rationalDiv = `Rational.div`
+ declare isabelle target_rep function rationalDiv = infix `div`
+ declare coq      target_rep function rationalDiv = `Qdiv`
++declare pvs      target_rep function rationalDiv = `rat_div`
+ 
+ instance ( NumDivision rational )
+   let (/) = rationalDiv
+@@ -1495,12 +1638,14 @@
+ declare isabelle target_rep function rationalNumerator r = (`fst` (`quotient_of` r))
+ declare hol      target_rep function rationalNumerator r = (`Numerator` r)
+ declare coq      target_rep function rationalNumerator r = (`Qnum` r)  (* TODO: test *)
++declare pvs      target_rep function rationalNumerator r = (`numerator` r)
+ 
+ val rationalDenominator : rational -> integer
+ declare ocaml    target_rep function rationalDenominator r = (`Rational.den` r)
+ declare isabelle target_rep function rationalDenominator r = (`snd` (`quotient_of` r))
+ declare hol      target_rep function rationalDenominator r = (`Denominator` r)
+ declare coq      target_rep function rationalDenominator r = (`QDen` r)  (* TODO: test *)
++declare pvs      target_rep function rationalDenominator r = (`denominator` r)
+ 
+ val rationalPowInteger : rational -> integer -> rational
+ let rec rationalPowInteger b e =
+@@ -1514,6 +1659,8 @@
+ let rationalPowNat r e = rationalPowInteger r (integerFromNat e)
+ declare isabelle target_rep function rationalPowNat = `power`
+ declare coq      target_rep function rationalPowNat r e = (`Qpower` r (`Z.of_nat` e))
++declare pvs      target_rep function rationalPowNat = `rat_pow`
++
+ 
+ instance ( NumPow rational )
+   let ( ** ) = rationalPowNat
+@@ -1524,12 +1671,14 @@
+ declare isabelle target_rep function rationalMin = `min`
+ declare ocaml    target_rep function rationalMin = `Rational.min`
+ declare coq      target_rep function rationalMin = `Qmin`
++declare pvs      target_rep function rationalMin = `rat_min`
+ 
+ val rationalMax : rational -> rational -> rational
+ let inline rationalMax = defaultMax
+ declare isabelle target_rep function rationalMax = `max`
+ declare ocaml    target_rep function rationalMax = `Rational.max`
+ declare coq      target_rep function rationalMax = `Qmax`
++declare pvs target_rep function rationalMax = `rat_max`
+ 
+ instance ( OrdMaxMin rational )
+   let max = rationalMax
+@@ -1547,6 +1696,7 @@
+ declare isabelle target_rep function realFromNumeral n = (``n : real)
+ declare hol      target_rep function realFromNumeral n = (`real_of_num` n)
+ declare coq      target_rep function realFromNumeral n = (`IZR` (`Zpred` (`Zpos` (`P_of_succ_nat` n))))
++declare pvs      target_rep function realFromNumeral n = (``n)
+ 
+ instance (Numeral real)
+   let fromNumeral n = realFromNumeral n
+@@ -1557,6 +1707,7 @@
+ declare isabelle target_rep function realFromInteger n = (`real_of_int` n)
+ declare hol      target_rep function realFromInteger n = (`real_of_int` n)
+ declare coq      target_rep function realFromInteger n = (`IZR` n)
++declare pvs      target_rep function realFromInteger n = (``n)
+ 
+ val realEq : real -> real -> bool
+ let inline realEq = unsafe_structural_equality
+@@ -1575,25 +1726,33 @@
+ declare ocaml    target_rep function realLess = infix `<`
+ declare isabelle target_rep function realLess = infix `<`
+ declare coq      target_rep function realLess = `Rlt_bool`
++declare pvs      target_rep function realLess = `lt`
++
+ 
+ declare hol      target_rep function realLessEqual = infix `<=`
+ declare ocaml    target_rep function realLessEqual = infix `<=`
+ declare isabelle target_rep function realLessEqual = infix `\<le>`
+ declare coq      target_rep function realLessEqual = `Rle_bool`
++declare pvs      target_rep function realLessEqual = `le`
++
+ 
+ declare hol      target_rep function realGreater = infix `>`
+ declare ocaml    target_rep function realGreater = infix `>`
+ declare isabelle target_rep function realGreater = infix `>`
+ declare coq      target_rep function realGreater = `Rgt_bool`
++declare pvs      target_rep function realGreater = `gt`
++
+ 
+ declare hol      target_rep function realGreaterEqual = infix `>=`
+ declare ocaml    target_rep function realGreaterEqual = infix `>=`
+ declare isabelle target_rep function realGreaterEqual = infix `\<ge>`
+ declare coq      target_rep function realGreaterEqual = `Rge_bool`
++declare pvs      target_rep function realGreaterEqual = `ge`
++
+ 
+ val realCompare : real -> real -> ordering
+ let inline realCompare = defaultCompare
+-let inline {coq; isabelle; hol; ocaml} realCompare = genericCompare realLess realEq
++let inline {coq; isabelle; hol; ocaml; pvs} realCompare = genericCompare realLess realEq
+ 
+ instance (Ord real)
+   let compare = realCompare
+@@ -1612,6 +1771,8 @@
+ declare ocaml    target_rep function realAdd = `Lem.plus_float`
+ declare isabelle target_rep function realAdd = infix `+`
+ declare coq      target_rep function realAdd = `Rplus`
++declare pvs      target_rep function realAdd = `add`
++
+ 
+ instance (NumAdd real)
+   let (+) = realAdd
+@@ -1622,6 +1783,8 @@
+ declare ocaml    target_rep function realMinus = `Lem.minus_float`
+ declare isabelle target_rep function realMinus = infix `-`
+ declare coq      target_rep function realMinus = `Rminus`
++declare pvs      target_rep function realMinus = `minus`
++
+ 
+ instance (NumMinus real)
+   let (-) = realMinus
+@@ -1632,6 +1795,7 @@
+ declare ocaml    target_rep function realNegate = `Lem.neg_float`
+ declare isabelle target_rep function realNegate i = `-` i
+ declare coq      target_rep function realNegate = `Ropp`
++declare pvs      target_rep function realNegate i = `-` i
+ 
+ instance (NumNegate real)
+   let ~ = realNegate
+@@ -1642,6 +1806,7 @@
+ declare ocaml    target_rep function realAbs = `abs_float`
+ declare isabelle target_rep function realAbs = `abs`
+ declare coq      target_rep function realAbs = `Rabs`
++declare pvs      target_rep function realAbs = `abs`
+ 
+ instance (NumAbs real)
+   let abs = realAbs
+@@ -1664,6 +1829,8 @@
+ declare ocaml    target_rep function realMult = `Lem.mult_float`
+ declare isabelle target_rep function realMult = infix `*`
+ declare coq      target_rep function realMult = `Rmult`
++declare pvs      target_rep function realMult = `mult`
++
+ 
+ instance (NumMult real)
+   let ( * ) = realMult
+@@ -1674,6 +1841,7 @@
+ declare ocaml    target_rep function realDiv = `Lem.div_float`
+ declare isabelle target_rep function realDiv = infix `div`
+ declare coq      target_rep function realDiv = `Rdiv`
++declare pvs      target_rep function realDiv = `div`
+ 
+ instance ( NumDivision real )
+   let (/) = realDiv
+@@ -1692,11 +1860,14 @@
+ declare coq      target_rep function realPowInteger = `powerRZ`
+ declare {isabelle} termination_argument realPowInteger = automatic
+ 
++
+ val realPowNat : real -> nat -> real
+ let realPowNat r e = realPowInteger r (integerFromNat e)
+ declare isabelle target_rep function realPowNat = `power`
+ declare coq      target_rep function realPowNat = `pow`
+ declare hol      target_rep function realPowNat = infix `pow`
++declare pvs      target_rep function realPowNat = `pow`
++
+ 
+ instance ( NumPow real )
+   let ( ** ) = realPowNat
+@@ -1707,6 +1878,7 @@
+ declare ocaml    target_rep function realSqrt = `sqrt`
+ declare isabelle target_rep function realSqrt = `sqrt`
+ declare coq      target_rep function realSqrt = `Rsqrt`
++declare pvs      target_rep function realSqrt = `SQRT`
+ 
+ val realMin : real -> real -> real
+ let inline realMin = defaultMin
+@@ -1714,6 +1886,7 @@
+ declare isabelle target_rep function realMin = `min`
+ declare ocaml    target_rep function realMin = `min`
+ declare coq      target_rep function realMin = `Rmin`
++declare pvs      target_rep function realMin = `min`
+ 
+ val realMax : real -> real -> real
+ let inline realMax = defaultMax
+@@ -1721,6 +1894,7 @@
+ declare isabelle target_rep function realMax = `max`
+ declare ocaml    target_rep function realMax = `max`
+ declare coq      target_rep function realMax = `Rmax`
++declare pvs      target_rep function realMax = `max`
+ 
+ instance ( OrdMaxMin real )
+   let max = realMax
+@@ -1732,13 +1906,14 @@
+ declare ocaml    target_rep function realCeiling = `Lem.big_num_of_ceil`
+ declare hol      target_rep function realCeiling = `clg`
+ declare coq      target_rep function realCeiling = `up`
++declare pvs      target_rep function realCeiling = `ceiling`
+ 
+ val realFloor : real -> integer
+ declare isabelle target_rep function realFloor = `floor`
+ declare ocaml    target_rep function realFloor = `Lem.big_num_of_floor`
+ declare hol      target_rep function realFloor = `flr`
+ declare coq      target_rep function realFloor = `Rdown`
+-
++declare pvs      target_rep function realFloor = `floor`
+ 
+ val integerSqrt : integer -> integer
+ let integerSqrt i = realFloor (realSqrt (realFromInteger i))
+@@ -2067,6 +2242,7 @@
+ declare ocaml    target_rep function integerFromInt = `Nat_big_num.of_int`
+ declare isabelle target_rep function integerFromInt = ``
+ declare coq      target_rep function integerFromInt = ``
++declare pvs      target_rep function integerFromInt = ``
+ 
+ assert integer_from_int_0: integerFromInt 0 = 0
+ assert integer_from_int_1: integerFromInt 1 = 1
+@@ -2081,6 +2257,7 @@
+ declare ocaml    target_rep function integerFromNatural n = ``n
+ declare isabelle target_rep function integerFromNatural = `int`
+ declare coq      target_rep function integerFromNatural n = (`Zpred` (`Zpos` (`P_of_succ_nat` n))) (* TODO: check *)
++declare pvs      target_rep function integerFromNatural n = ``n
+ 
+ assert integerFromNatural_0: integerFromNatural 0 = 0
+ assert integerFromNatural_1: integerFromNatural 822 = 822
+@@ -2092,6 +2269,7 @@
+ declare isabelle target_rep function integerFromInt32 = `sint`
+ declare hol      target_rep function integerFromInt32 = `w2int`
+ declare coq      target_rep function integerFromInt32 = ``
++declare pvs      target_rep function integerFromInt32 = `to_int`
+ 
+ assert integer_from_int32_0: integerFromInt32 0 = 0
+ assert integer_from_int32_1: integerFromInt32 1 = 1
+@@ -2106,6 +2284,7 @@
+ declare isabelle target_rep function integerFromInt64 = `sint`
+ declare hol      target_rep function integerFromInt64 = `w2int`
+ declare coq      target_rep function integerFromInt64 = ``
++declare pvs      target_rep function integerFromInt64 = `to_int`
+ 
+ assert integer_from_int64_0: integerFromInt64 0 = 0
+ assert integer_from_int64_1: integerFromInt64 1 = 1
+@@ -2124,6 +2303,7 @@
+ declare ocaml    target_rep function naturalFromNat = `Nat_big_num.of_int`
+ declare isabelle target_rep function naturalFromNat = ``
+ declare coq      target_rep function naturalFromNat = ``
++declare pvs      target_rep function naturalFromNat = ``
+ 
+ assert natural_from_nat_0: naturalFromNat 0 = 0
+ assert natural_from_nat_1: naturalFromNat 1 = 1
+@@ -2136,6 +2316,7 @@
+ declare ocaml    target_rep function naturalFromInteger = `Nat_big_num.abs`
+ declare coq      target_rep function naturalFromInteger = `Zabs_nat`
+ declare isabelle target_rep function naturalFromInteger i = `nat` (`abs` i)
++declare pvs      target_rep function naturalFromInteger = `int_abs`
+ 
+ assert natural_from_integer_0: naturalFromInteger 0 = 0
+ assert natural_from_integer_1: naturalFromInteger 1 = 1
+@@ -2152,6 +2333,7 @@
+ declare ocaml    target_rep function intFromInteger = `Nat_big_num.to_int`
+ declare isabelle target_rep function intFromInteger = ``
+ declare coq      target_rep function intFromInteger = ``
++declare pvs      target_rep function intFromInteger = ``
+ 
+ assert int_from_integer_0: intFromInteger 0 = 0
+ assert int_from_integer_1: intFromInteger 1 = 1
+@@ -2162,6 +2344,7 @@
+ declare ocaml    target_rep function intFromNat n = ``n
+ declare isabelle target_rep function intFromNat = `int`
+ declare coq      target_rep function intFromNat n = (`Zpred` (`Zpos` (`P_of_succ_nat` n)))
++declare pvs      target_rep function intFromNat = ``
+ 
+ assert int_from_nat_0: intFromNat 0 = 0
+ assert int_from_nat_1: intFromNat 1 = 1
+@@ -2178,6 +2361,7 @@
+ declare ocaml    target_rep function natFromNatural = `Nat_big_num.to_int`
+ declare isabelle target_rep function natFromNatural = ``
+ declare coq      target_rep function natFromNatural = ``
++declare pvs      target_rep function natFromNatural = ``
+ 
+ assert nat_from_natural_0: natFromNatural 0 = 0
+ assert nat_from_natural_1: natFromNatural 1 = 1
+@@ -2188,6 +2372,7 @@
+ declare ocaml    target_rep function natFromInt = `abs`
+ declare coq      target_rep function natFromInt = `Zabs_nat`
+ declare isabelle target_rep function natFromInt i = `nat` (`abs` i)
++declare pvs      target_rep function natFromInt = `int_abs`
+ 
+ assert nat_from_int_0: natFromInt 0 = 0
+ assert nat_from_int_1: natFromInt 1 = 1
+@@ -2203,6 +2388,7 @@
+ declare ocaml    target_rep function int32FromNat = `Int32.of_int`
+ declare coq      target_rep function int32FromNat n = (`Zpred` (`Zpos` (`P_of_succ_nat` n))) (* TODO check *)
+ declare isabelle target_rep function int32FromNat n = ((`word_of_int` (`int` n)):int32)
++declare pvs      target_rep function int32FromNat = `of_nat[32]`
+ 
+ assert int32_from_nat_0: int32FromNat 0 = 0
+ assert int32_from_nat_1: int32FromNat 1 = 1
+@@ -2213,6 +2399,7 @@
+ declare ocaml    target_rep function int32FromNatural = `Nat_big_num.to_int32`
+ declare coq      target_rep function int32FromNatural n = (`Zpred` (`Zpos` (`P_of_succ_nat` n))) (* TODO check *)
+ declare isabelle target_rep function int32FromNatural n = ((`word_of_int` (`int` n)):int32)
++declare pvs      target_rep function int32FromNatural = `of_nat[32]`
+ 
+ assert int32_from_natural_0: int32FromNatural 0 = 0
+ assert int32_from_natural_1: int32FromNatural 1 = 1
+@@ -2226,6 +2413,7 @@
+ 
+ declare ocaml    target_rep function int32FromInteger = `Nat_big_num.to_int32`
+ declare isabelle target_rep function int32FromInteger i = ((`word_of_int` i) : int32)
++declare pvs      target_rep function int32FromInteger = `of_int[32]`
+ 
+ assert int32_from_integer_0: int32FromInteger 0 = 0
+ assert int32_from_integer_1: int32FromInteger 1 = 1
+@@ -2238,6 +2426,7 @@
+ let int32FromInt i = int32FromInteger (integerFromInt i)
+ declare ocaml    target_rep function int32FromInt = `Int32.of_int`
+ declare isabelle target_rep function int32FromInt i = ((`word_of_int` i) : int32)
++declare pvs      target_rep function int32FromInt = `of_int[32]`
+ 
+ assert int32_from_int_0: int32FromInt 0 = 0
+ assert int32_from_int_1: int32FromInt 1 = 1
+@@ -2252,6 +2441,7 @@
+ declare ocaml    target_rep function int32FromInt64 = `Int64.to_int32`
+ declare hol      target_rep function int32FromInt64 i = ((`sw2sw` i) : int32)
+ declare isabelle target_rep function int32FromInt64 i = ((`scast` i) : int32)
++declare pvs      target_rep function int32FromInt64 = `of_int[32]`
+ 
+ assert int32_from_int_64_0: int32FromInt64 0 = 0
+ assert int32_from_int_64_1: int32FromInt64 1 = 1
+@@ -2272,6 +2462,7 @@
+ declare ocaml    target_rep function int64FromNat = `Int64.of_int`
+ declare coq      target_rep function int64FromNat n = (`Zpred` (`Zpos` (`P_of_succ_nat` n))) (* TODO check *)
+ declare isabelle target_rep function int64FromNat n = ((`word_of_int` (`int` n)):int64)
++declare pvs      target_rep function int64FromNat = `of_nat[64]`
+ 
+ assert int64_from_nat_0: int64FromNat 0 = 0
+ assert int64_from_nat_1: int64FromNat 1 = 1
+@@ -2282,6 +2473,7 @@
+ declare ocaml    target_rep function int64FromNatural = `Nat_big_num.to_int64`
+ declare coq      target_rep function int64FromNatural n = (`Zpred` (`Zpos` (`P_of_succ_nat` n))) (* TODO check *)
+ declare isabelle target_rep function int64FromNatural n = ((`word_of_int` (`int` n)):int64)
++declare pvs      target_rep function int64FromNatural = `of_nat[64]`
+ 
+ assert int64_from_natural_0: int64FromNatural 0 = 0
+ assert int64_from_natural_1: int64FromNatural 1 = 1
+@@ -2295,6 +2487,7 @@
+ 
+ declare ocaml    target_rep function int64FromInteger = `Nat_big_num.to_int64`
+ declare isabelle target_rep function int64FromInteger i = ((`word_of_int` i) : int64)
++declare pvs      target_rep function int64FromInteger = `of_int[64]`
+ 
+ assert int64_from_integer_0: int64FromInteger 0 = 0
+ assert int64_from_integer_1: int64FromInteger 1 = 1
+@@ -2307,6 +2500,7 @@
+ let int64FromInt i = int64FromInteger (integerFromInt i)
+ declare ocaml    target_rep function int64FromInt = `Int64.of_int`
+ declare isabelle target_rep function int64FromInt i = ((`word_of_int` i) : int64)
++declare pvs      target_rep function int64FromInt = `of_int[64]`
+ 
+ assert int64_from_int_0: int64FromInt 0 = 0
+ assert int64_from_int_1: int64FromInt 1 = 1
+@@ -2321,6 +2515,7 @@
+ declare ocaml    target_rep function int64FromInt32 = `Int64.of_int32`
+ declare hol      target_rep function int64FromInt32 i = ((`sw2sw` i) : int64)
+ declare isabelle target_rep function int64FromInt32 i = ((`scast` i) : int64)
++declare pvs      target_rep function int64FromInt32 i = (`of_int[64]` (`to_int[32]` i))
+ 
+ assert int64_from_int_33_0: int64FromInt32 0 = 0
+ assert int64_from_int_32_1: int64FromInt32 1 = 1
+diff -Naur ../lem/library/pervasives_extra.lem ../lem_ext/library/pervasives_extra.lem
+--- ../lem/library/pervasives_extra.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/pervasives_extra.lem	2019-03-28 21:35:01.300416620 -0400
+@@ -1,4 +1,4 @@
+-declare {isabelle;ocaml;hol;coq} rename module = Lem_pervasives_extra 
++declare {isabelle;ocaml;hol;coq;pvs} rename module = Lem_pervasives_extra 
+ 
+ include import Pervasives 
+ include import Function_extra Maybe_extra Map_extra Num_extra Set_extra Set_helpers List_extra String_extra Assert_extra Show_extra Machine_word
+diff -Naur ../lem/library/pervasives.lem ../lem_ext/library/pervasives.lem
+--- ../lem/library/pervasives.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/pervasives.lem	2019-03-28 21:35:01.300416620 -0400
+@@ -1,4 +1,4 @@
+-declare {isabelle;ocaml;hol;coq} rename module = Lem_pervasives 
++declare {isabelle;ocaml;hol;coq;pvs} rename module = Lem_pervasives 
+ 
+ include import Basic_classes Bool Tuple Maybe Either Function Num Map Set List String Word Show
+ 
+diff -Naur ../lem/library/relation.lem ../lem_ext/library/relation.lem
+--- ../lem/library/relation.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/relation.lem	2019-03-28 21:35:01.300416620 -0400
+@@ -6,10 +6,11 @@
+ (* Header                                                                     *)
+ (* ========================================================================== *)
+ 
+-declare {isabelle;ocaml;hol;coq} rename module = lem_relation
++declare {isabelle;ocaml;hol;coq;pvs} rename module = lem_relation
+ 
+ open import Bool Basic_classes Tuple Set Num
+ open import {hol} `set_relationTheory`
++open import {pvs} `set_extra`
+ 
+ (* ========================================================================== *)
+ (* The type of relations                                                      *)
+@@ -117,7 +118,7 @@
+ let relIdOn s = relFromPred s s (=)
+ 
+ val relId : forall 'a. SetType 'a, Eq 'a => rel 'a 'a
+-let ~{coq;ocaml;isabelle} relId = {(x, x) | forall x | true}
++let ~{coq;ocaml;isabelle;pvs} relId = {(x, x) | forall x | true}
+ 
+ declare isabelle target_rep function relId = `Id`
+ 
+@@ -164,7 +165,7 @@
+ declare isabelle target_rep function relComp = infix `O`
+ 
+ lemma rel_comp_1 : (forall r1 r2 e1 e2 e3. (inRel e1 e2 r1 && inRel e2 e3 r2) --> inRel e1 e3 (relComp r1 r2))
+-lemma ~{coq;ocaml} rel_comp_2 : (forall r. (relComp r relId = r) && (relComp relId r = r))
++lemma ~{coq;ocaml;pvs} rel_comp_2 : (forall r. (relComp r relId = r) && (relComp relId r = r))
+ lemma rel_comp_3 : (forall r. (relComp r relEmpty = relEmpty) && (relComp relEmpty r = relEmpty))
+ 
+ assert rel_comp_0: (relComp (relFromSet {((2:nat), (4:nat)); (2, 8)}) (relFromSet {(4, (3:nat)); (2, 8)}) = 
+@@ -323,7 +324,7 @@
+ declare {hol} rename function isReflexiveOn = lem_is_reflexive_on
+ 
+ val isReflexive : forall 'a. SetType 'a, Eq 'a => rel 'a 'a -> bool
+-let ~{ocaml;coq} isReflexive r = (forall e. inRel e e r)
++let ~{ocaml;coq;pvs} isReflexive r = (forall e. inRel e e r)
+ 
+ declare {hol} rename function isReflexive = lem_is_reflexive
+ declare isabelle target_rep function isReflexive = `refl`
+@@ -440,7 +441,7 @@
+ 
+ 
+ val isTotal : forall 'a. SetType 'a, Eq 'a => rel 'a 'a -> bool
+-let ~{ocaml;coq} isTotal r = (forall e1 e2. (inRel e1 e2 r) || (inRel e2 e1 r))
++let ~{ocaml;coq;pvs} isTotal r = (forall e1 e2. (inRel e1 e2 r) || (inRel e2 e1 r))
+ declare {hol} rename function isTotal = lem_is_total
+ declare isabelle target_rep function isTotal = `total`
+ 
+@@ -450,7 +451,7 @@
+ declare {hol} rename function isTrichotomousOn = lem_is_trichotomous_on
+ 
+ val isTrichotomous : forall 'a. SetType 'a, Eq 'a => rel 'a 'a -> bool
+-let ~{ocaml;coq} isTrichotomous r = (forall e1 e2. (inRel e1 e2 r) || (e1 = e2) || (inRel e2 e1 r))
++let ~{ocaml;coq;pvs} isTrichotomous r = (forall e1 e2. (inRel e1 e2 r) || (e1 = e2) || (inRel e2 e1 r))
+ 
+ declare {hol} rename function isTrichotomous = lem_is_trichotomous
+ 
+@@ -486,7 +487,7 @@
+ 
+ 
+ val isEquivalence : forall 'a. SetType 'a, Eq 'a => rel 'a 'a -> bool
+-let ~{ocaml;coq} isEquivalence r = isReflexive r && isSymmetric r && isTransitive r
++let ~{ocaml;coq;pvs} isEquivalence r = isReflexive r && isSymmetric r && isTransitive r
+ 
+ declare {hol} rename function isEquivalence = lem_is_equivalence
+ 
+@@ -501,7 +502,7 @@
+ (* ----------------------- *)
+ 
+ val isWellFounded : forall 'a. SetType 'a, Eq 'a => rel 'a 'a -> bool
+-let ~{ocaml;coq} isWellFounded r = (forall P. (forall x. (forall y. inRel y x r --> P x) --> P x) --> (forall x. P x))
++let ~{ocaml;coq;pvs} isWellFounded r = (forall P. (forall x. (forall y. inRel y x r --> P x) --> P x) --> (forall x. P x))
+ 
+ declare hol      target_rep function isWellFounded r = `WF` (`reln_to_rel` r)
+ 
+@@ -521,7 +522,7 @@
+ declare {hol} rename function isPreorderOn = lem_is_preorder_on
+ 
+ val isPreorder : forall 'a. SetType 'a, Eq 'a => rel 'a 'a -> bool
+-let ~{ocaml;coq} isPreorder r = isReflexive r && isTransitive r
++let ~{ocaml;coq;pvs} isPreorder r = isReflexive r && isTransitive r
+ 
+ declare {hol} rename function isPreorder = lem_is_preorder
+ 
+@@ -571,7 +572,7 @@
+ assert is_strict_partialorder_4 : not (isStrictPartialOrder (relFromSet {((2:nat), (3:nat)); (2,2)}))
+ 
+ val isPartialOrder : forall 'a. SetType 'a, Eq 'a => rel 'a 'a -> bool
+-let ~{ocaml;coq} isPartialOrder r = isReflexive r && isTransitive r && isAntisymmetric r
++let ~{ocaml;coq;pvs} isPartialOrder r = isReflexive r && isTransitive r && isAntisymmetric r
+ 
+ declare {hol} rename function isPartialOrder = lem_is_partial_order
+ 
+@@ -590,12 +591,12 @@
+ declare {hol} rename function isStrictTotalOrderOn = lem_is_strict_total_order_on
+ 
+ val isTotalOrder : forall 'a. SetType 'a, Eq 'a => rel 'a 'a -> bool
+-let ~{ocaml;coq} isTotalOrder r = isPartialOrder r && isTotal r 
++let ~{ocaml;coq;pvs} isTotalOrder r = isPartialOrder r && isTotal r 
+ 
+ declare {hol} rename function isTotalOrder = lem_is_total_order
+ 
+ val isStrictTotalOrder : forall 'a. SetType 'a, Eq 'a => rel 'a 'a -> bool
+-let ~{ocaml;coq} isStrictTotalOrder r = isStrictPartialOrder r && isTrichotomous r 
++let ~{ocaml;coq;pvs} isStrictTotalOrder r = isStrictPartialOrder r && isTrichotomous r 
+ 
+ declare {hol} rename function isStrictTotalOrder = lem_is_strict_total_order
+ 
+@@ -625,6 +626,7 @@
+ declare hol      target_rep function transitiveClosure = `tc`
+ declare isabelle target_rep function transitiveClosure = `trancl`
+ declare coq      target_rep function transitiveClosureByEq = `set_tc`
++declare pvs      target_rep function transitiveClosure = `TC`
+ 
+ let inline {coq} transitiveClosure = transitiveClosureByEq (=)
+ let inline {ocaml} transitiveClosure = transitiveClosureByCmp setElemCompare
+@@ -674,7 +676,7 @@
+ 
+ 
+ val reflexiveTransitiveClosure : forall 'a. SetType 'a, Eq 'a => rel 'a 'a -> rel 'a 'a
+-let ~{ocaml;coq} reflexiveTransitiveClosure r = transitiveClosure (relUnion r relId)
++let ~{ocaml;coq;pvs} reflexiveTransitiveClosure r = transitiveClosure (relUnion r relId)
+ 
+ 
+ 
+diff -Naur ../lem/library/set_extra.lem ../lem_ext/library/set_extra.lem
+--- ../lem/library/set_extra.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/set_extra.lem	2019-03-28 21:35:01.300416620 -0400
+@@ -10,8 +10,9 @@
+ 
+ open import Bool Basic_classes Maybe Function Num List Sorting Set
+ 
+-declare {hol;isabelle;ocaml;coq} rename module = lem_set_extra
++declare {hol;isabelle;ocaml;coq;pvs} rename module = lem_set_extra
+ 
++open import {pvs} `set_extra`
+ 
+ (* ----------------------------*)
+ (* set choose (be careful !)   *)
+@@ -23,6 +24,7 @@
+ declare hol      target_rep function choose = `CHOICE`
+ declare isabelle target_rep function choose = `set_choose`
+ declare ocaml    target_rep function choose = `Pset.choose`
++declare pvs      target_rep function choose = `choose`
+ 
+ lemma ~{coq} choose_sing: (forall x. choose {x} = x)
+ lemma ~{coq} choose_in: (forall s. not (null s) --> ((choose s) IN s))
+@@ -70,6 +72,7 @@
+ 
+ declare hol      target_rep function universal = `UNIV`
+ declare isabelle target_rep function universal = `UNIV`
++declare pvs      target_rep function universal = `fullset`
+ 
+ assert {hol} in_univ_0 : true IN universal
+ assert {hol} in_univ_1 : (1:nat) IN universal
+@@ -87,6 +90,7 @@
+ declare isabelle target_rep function toList = `list_of_set`
+ declare hol      target_rep function toList = `SET_TO_LIST`
+ declare coq      target_rep function toList = `set_to_list`
++declare pvs      target_rep function toList = `set2list`
+ 
+ 
+ assert toList_0: toList ({} : set nat) = []
+@@ -129,8 +133,10 @@
+     lexicographicCompareBy cmp ss' ts'
+ 
+ declare coq target_rep function setCompareBy = `set_compare_by`
++declare pvs target_rep function setCompareBy = `set_compare_by`
+ declare ocaml target_rep function setCompareBy = `Pset.compare_by`
+ 
++
+ val setCompare : forall 'a. SetType 'a, Ord 'a => set 'a -> set 'a -> ordering
+ let setCompare = setCompareBy compare
+ 
+@@ -150,6 +156,7 @@
+    else leastFixedPointUnbounded f (fx union x)
+ 
+ declare isabelle target_rep function leastFixedPointUnbounded f s = `LemExtraDefs.unbounded_lfp` s f
++declare pvs      target_rep function leastFixedPointUnbounded f s = `unbounded_lfp` f s
+ 
+ declare compile_message toOrderedList = "leastFixedPointUnbounded is deprecated as it is not supported by all backends (e.g. coq). Use Set.leastFixedPoint instead."
+ 
+diff -Naur ../lem/library/set_helpers.lem ../lem_ext/library/set_helpers.lem
+--- ../lem/library/set_helpers.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/set_helpers.lem	2019-03-28 21:35:01.300416620 -0400
+@@ -15,7 +15,7 @@
+ (* ========================================================================== *)
+ 
+ open import Bool Basic_classes Maybe Function Num 
+-declare {isabelle;hol;ocaml;coq} rename module = lem_set_helpers 
++declare {isabelle;hol;ocaml;coq;pvs} rename module = lem_set_helpers 
+ 
+ open import {coq} `Coq.Lists.List`
+ 
+@@ -38,5 +38,6 @@
+ declare isabelle target_rep function fold f A q = `Finite_Set.fold` f q A
+ declare ocaml    target_rep function fold = `Pset.fold`
+ declare coq      target_rep function fold = `set_fold`
++declare pvs      target_rep function fold = `fold`
+ 
+ 
+diff -Naur ../lem/library/set.lem ../lem_ext/library/set.lem
+--- ../lem/library/set.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/set.lem	2019-03-28 21:35:01.300416620 -0400
+@@ -28,7 +28,7 @@
+ 
+ open import Bool Basic_classes Maybe Function Num List Set_helpers
+ 
+-declare {isabelle;hol;ocaml;coq} rename module = lem_set
++declare {isabelle;hol;ocaml;coq;pvs} rename module = lem_set
+ 
+ (* DPM: sets currently implemented as lists due to mismatch between Coq type
+  * class hierarchy and the hierarchy implemented in Lem.
+@@ -36,6 +36,7 @@
+ open import {coq} `Coq.Lists.List`
+ open import {hol} `lemTheory`
+ open import {isabelle} `$LIB_DIR/Lem`
++open import {pvs} `set_extra`
+ 
+ (* Type of sets and set comprehensions are hard-coded *)
+ 
+@@ -49,7 +50,7 @@
+ declare coq target_rep function setEqualBy = `set_equal_by`
+ 
+ val setEqual : forall 'a. SetType 'a => set 'a -> set 'a -> bool
+-let inline {hol; isabelle} setEqual = unsafe_structural_equality
++let inline {hol; isabelle; pvs} setEqual = unsafe_structural_equality
+ let inline {coq} setEqual = setEqualBy setElemCompare
+ declare ocaml    target_rep function setEqual = `Pset.equal`
+ 
+@@ -73,6 +74,7 @@
+ declare isabelle target_rep function empty = `{}`
+ declare html     target_rep function empty = `&empty;`
+ declare tex      target_rep function empty = `$\emptyset$`
++declare pvs      target_rep function empty = `emptyset`
+ 
+ assert empty_0: (empty : set bool) = {}
+ assert empty_1: (empty : set nat) = {}
+@@ -90,6 +92,7 @@
+ declare hol      target_rep function any P s = `EXISTS` P (`SET_TO_LIST` s)
+ declare isabelle target_rep function any P s = `Set.Bex` s P
+ declare ocaml    target_rep function any = `Pset.exists`
++declare pvs      target_rep function any = `some`
+ 
+ assert any_0 : any (fun (x:nat) -> x > 5) {3;4;6}
+ assert any_1 : not (any (fun (x:nat) -> x > 10) {3;4;6})
+@@ -101,6 +104,7 @@
+ declare hol      target_rep function all P s = `EVERY` P (`SET_TO_LIST` s)
+ declare isabelle target_rep function all P s = `Set.Ball` s P
+ declare ocaml    target_rep function all = `Pset.for_all`
++declare pvs      target_rep function all = `every`
+ 
+ assert all_0 : all (fun (x:nat) -> x > 2) {3;4;6}
+ assert all_1 : not (all (fun (x:nat) -> x > 2) {3;4;6;1})
+@@ -120,6 +124,7 @@
+ declare hol      target_rep function member = infix `IN`
+ declare html     target_rep function member = infix `&isin;`
+ declare tex      target_rep function member = infix `$\in$`
++declare pvs      target_rep function member = `member`
+ 
+ assert in_1: ((1:nat) IN {(2:nat);3;1})
+ assert in_2: (not ((1:nat) IN {2;3;4}))
+@@ -152,6 +157,7 @@
+ 
+ declare ocaml    target_rep function null = `Pset.is_empty`
+ declare coq      target_rep function null = `set_is_empty`
++declare pvs      target_rep function null = `empty?`
+ 
+ assert null_1: (null ({}: set nat))
+ assert null_2: (not (null {(1:nat)}))
+@@ -166,9 +172,10 @@
+ 
+ declare ocaml    target_rep function singletonBy = `Pset.singleton`
+ declare coq target_rep function singleton = `set_singleton`
++declare pvs target_rep function singleton = `singleton`
+ 
+ let inline {ocaml} singleton = singletonBy setElemCompare
+-let inline ~{ocaml;coq} singleton x = {x}
++let inline ~{ocaml;coq;pvs} singleton x = {x}
+ 
+ assert singleton_1 : singleton (2:nat) = {2}
+ assert singleton_2 : not (null (singleton (2:nat)))
+@@ -186,6 +193,7 @@
+ declare coq      target_rep function size = `set_cardinal`
+ declare hol      target_rep function size = `CARD`
+ declare isabelle target_rep function size = `card`
++declare pvs      target_rep function size = `card`
+ 
+ assert size_1: (size ({}:set nat) = 0)
+ assert size_2: (size {(2:nat)} = 1)
+@@ -216,6 +224,7 @@
+ declare isabelle target_rep function set_case = `set_case`
+ declare coq      target_rep function set_case = `set_case`
+ declare ocaml    target_rep function set_case = `Pset.set_case`
++declare pvs      target_rep function set_case = `set_case`
+ 
+ declare pattern_match inexhaustive set 'a = [ empty; singleton ] set_case
+ 
+@@ -319,6 +328,7 @@
+ declare isabelle target_rep function (union) = infix `\<union>`
+ declare coq      target_rep function unionBy = `set_union_by`
+ declare tex      target_rep function (union) = infix `$\cup$`
++declare pvs      target_rep function (union) = `union`
+ let inline {coq} (union) = unionBy setElemCompare
+ 
+ 
+@@ -335,6 +345,7 @@
+ declare coq      target_rep function insert = `set_add`
+ declare hol      target_rep function insert = infix `INSERT`
+ declare isabelle target_rep function insert = `Set.insert`
++declare pvs      target_rep function insert = `add`
+ 
+ assert insert_1: ((insert (2:nat) {3;4}) = {2;3;4})
+ assert insert_2: ((insert (3:nat) {3;4}) = {3;4})
+@@ -350,6 +361,7 @@
+ declare ocaml    target_rep function filter = `Pset.filter`
+ declare isabelle target_rep function filter = `set_filter`
+ declare hol      target_rep function filter = `SET_FILTER`
++declare pvs      target_rep function filter = `filter`
+ 
+ assert filter_1: (filter (fun n -> (n > 2)) {(1:nat);2;3;4} = {3;4})
+ assert filter_2: (filter (fun n -> n > (2:nat)) {} = {})
+@@ -400,6 +412,7 @@
+ declare tex      target_rep function isSubsetOf = infix `$\subseteq$`
+ declare coq      target_rep function isSubsetOfBy = `set_subset_by`
+ let inline {coq} isSubsetOf = isSubsetOfBy setElemCompare
++declare pvs      target_rep function isSubsetOf = `subset?`
+ 
+ declare ocaml    target_rep function isProperSubsetOf = `Pset.subset_proper`
+ declare hol      target_rep function isProperSubsetOf = infix `PSUBSET`
+@@ -408,6 +421,7 @@
+ declare tex      target_rep function isProperSubsetOf = infix `$\subset$`
+ declare coq      target_rep function isProperSubsetOfBy = `set_proper_subset_by`
+ let inline {coq} isProperSubsetOf = isProperSubsetOfBy setElemCompare 
++declare pvs      target_rep function isProperSubsetOf = `strict_subset?`
+ 
+ let inline (subset) = isSubsetOf
+ declare tex      target_rep function (subset) = infix `$\subseteq$`
+@@ -451,6 +465,7 @@
+ declare hol      target_rep function bigunion = `BIGUNION`
+ declare isabelle target_rep function bigunion = `\<Union>`
+ declare tex      target_rep function bigunion = `$\bigcup$`
++declare pvs      target_rep function bigunion = `bigunion`
+ 
+ assert bigunion_0: (bigunion {{(1:nat)}} = {1})
+ assert bigunion_1: (bigunion {{(1:nat);2;3} ; {3;2;4}} = {1;2;3;4})
+@@ -468,6 +483,8 @@
+ val bigintersection : forall 'a. SetType 'a => set (set 'a) -> set 'a
+ let bigintersection bs = {x | forall (x IN (bigunion bs)) | forall (s IN bs). x IN s}
+ 
++declare pvs      target_rep function bigintersection = `bigintersection`
++
+ (* ------------------------ *)
+ (* difference               *)
+ (* ------------------------ *)
+@@ -480,6 +497,7 @@
+ declare tex      target_rep function difference = infix `$\setminus$`
+ declare coq      target_rep function differenceBy = `set_diff_by`
+ let inline {coq} difference = differenceBy setElemCompare
++declare pvs      target_rep function difference = `difference`
+ 
+ let inline (\) = difference
+ 
+@@ -498,6 +516,7 @@
+ declare isabelle target_rep function intersection = infix `\<inter>`
+ declare coq      target_rep function intersectionBy = `set_inter_by`
+ declare tex      target_rep function intersection = infix `$\cap$`
++declare pvs      target_rep function intersection = `intersection`
+ let inline {coq} intersection = intersectionBy setElemCompare
+ let inline (inter) = intersection
+ declare tex      target_rep function (inter) = infix `$\cap$`
+@@ -520,6 +539,7 @@
+ let inline {ocaml} map = mapBy setElemCompare
+ declare hol      target_rep function map = `IMAGE`
+ declare isabelle target_rep function map = `Set.image`
++declare pvs      target_rep function map = `map`
+ 
+ assert map_1: (map succ {(2:nat);3;4} = {5;4;3}) 
+ assert map_2: (map (fun n -> n * 3) {(2:nat);3;4} = {6;9;12}) 
+@@ -539,6 +559,7 @@
+ 
+ declare ocaml    target_rep function bigunionMapBy = `Pset.map_union`
+ let inline {ocaml} bigunionMap = bigunionMapBy setElemCompare
++declare pvs      target_rep function bigunionMap = `map_union`
+ 
+ assert bigunionmap_0: (bigunionMap (fun n -> {n; 2 * n; 3 * n}) {(1:nat)} = {1;2;3})
+ assert bigunionmap_1: (bigunionMap (fun n -> {n; 2 * n; 3 * n}) {(2:nat);8} = {2;4;6;8;16;24})
+@@ -602,6 +623,7 @@
+ declare isabelle target_rep function fromList = `List.set`
+ declare coq      target_rep function fromListBy = `set_from_list_by`
+ let inline {coq} fromList = fromListBy setElemCompare
++declare pvs      target_rep function fromList = `from_list`
+ 
+ 
+ assert fromList_1: (fromList [(2:nat);4;3] = {2;3;4}) 
+@@ -625,6 +647,7 @@
+ declare coq      target_rep function sigmaBy = `set_sigma_by`
+ let inline {coq} sigma = sigmaBy setElemCompare
+ declare hol      target_rep function sigma = `SET_SIGMA`
++declare pvs      target_rep function sigma = `sigma`
+ 
+ assert Sigma_1: (sigma {(2:nat);3} (fun n -> {n*2; n * 3}) = {(2,4); (2,6); (3,6); (3,9)})
+ lemma Sigma_2: (forall sa sb a b. ((a, b) IN sigma sa sb) <-> ((a IN sa) && (b IN sb a)))
+@@ -644,6 +667,7 @@
+ declare isabelle target_rep function cross = infix `\<times>`
+ declare hol      target_rep function cross = infix `CROSS`
+ declare tex      target_rep function cross = infix `$\times$`
++declare pvs      target_rep function cross = `cross`
+ let inline {ocaml} cross = crossBy setElemCompare
+ 
+ lemma cross_by_sigma : forall s1 s2. cross s1 s2 = sigma s1 (const s2)
+@@ -659,6 +683,7 @@
+ let inline {ocaml; coq} finite _s = true
+ declare hol      target_rep function finite = `FINITE`
+ declare isabelle target_rep function finite = `finite`
++declare pvs      target_rep function finite = `is_finite`
+ 
+ 
+ (* ----------------------------*)
+diff -Naur ../lem/library/show_extra.lem ../lem_ext/library/show_extra.lem
+--- ../lem/library/show_extra.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/show_extra.lem	2019-03-28 21:35:01.304416681 -0400
+@@ -1,4 +1,4 @@
+-declare {isabelle;hol;ocaml;coq} rename module = lem_show_extra
++declare {isabelle;hol;ocaml;coq;pvs} rename module = lem_show_extra
+ 
+ open import String Maybe Num Basic_classes Set Relation Show 
+ import Set_extra String_extra
+diff -Naur ../lem/library/show.lem ../lem_ext/library/show.lem
+--- ../lem/library/show.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/show.lem	2019-03-28 21:35:01.304416681 -0400
+@@ -1,4 +1,4 @@
+-declare {isabelle;hol;ocaml;coq} rename module = lem_show
++declare {isabelle;hol;ocaml;coq;pvs} rename module = lem_show
+ 
+ open import String Maybe Num Basic_classes
+ 
+diff -Naur ../lem/library/sorting.lem ../lem_ext/library/sorting.lem
+--- ../lem/library/sorting.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/sorting.lem	2019-03-28 21:35:01.304416681 -0400
+@@ -10,7 +10,7 @@
+ (* Header                                                                     *)
+ (* ========================================================================== *)
+ 
+-declare {isabelle;hol;ocaml;coq} rename module = lem_sorting
++declare {isabelle;hol;ocaml;coq;pvs} rename module = lem_sorting
+ 
+ open import Bool Basic_classes Maybe List Num
+ 
+@@ -154,8 +154,9 @@
+ declare isabelle target_rep function sortBy = `sort_by`
+ declare hol      target_rep function sortBy = `QSORT`
+ declare ocaml    target_rep function sortByOrd = `List.sort`
++declare pvs      target_rep function sortBy = `sort`
+ 
+-let inline {isabelle;hol} sortByOrd f xs = sortBy (predicate_of_ord f) xs
++let inline {isabelle;hol;pvs} sortByOrd f xs = sortBy (predicate_of_ord f) xs
+ declare coq      target_rep function sortByOrd      = `sort_by_ordering`
+ 
+ let inline ~{ocaml} sort = sortBy (<=)
+diff -Naur ../lem/library/string_extra.lem ../lem_ext/library/string_extra.lem
+--- ../lem/library/string_extra.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/string_extra.lem	2019-03-28 21:35:01.304416681 -0400
+@@ -9,8 +9,9 @@
+ open import List_extra
+ open import {hol} `stringLib`
+ open import {hol} `ASCIInumbersTheory`
++open import {pvs} `list_extra`
+ 
+-declare {isabelle;ocaml;hol;coq} rename module = lem_string_extra
++declare {isabelle;ocaml;hol;coq;pvs} rename module = lem_string_extra
+ 
+ 
+ (******************************************************************************)
+@@ -24,6 +25,7 @@
+    search, they might not be the best options *)
+ declare isabelle target_rep function ord = `of_char`
+ declare coq target_rep function ord = `nat_of_ascii`
++declare pvs target_rep function ord = `code`
+ 
+ val chr : nat -> char
+ declare hol target_rep function chr = `CHR`
+@@ -32,6 +34,7 @@
+    search, they might not be the best options *)
+ declare isabelle target_rep function chr = `(%n. char_of (n::nat))`
+ declare coq target_rep function chr = `ascii_of_nat`
++declare pvs target_rep function chr = `char`
+ 
+ (******************************************************************************)
+ (* Converting to strings                                                      *)
+diff -Naur ../lem/library/string.lem ../lem_ext/library/string.lem
+--- ../lem/library/string.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/string.lem	2019-03-28 21:35:01.304416681 -0400
+@@ -6,7 +6,7 @@
+ (* Header                                                                     *)
+ (* ========================================================================== *)
+ 
+-declare {ocaml;isabelle;hol;coq} rename module = lem_string
++declare {ocaml;isabelle;hol;coq;pvs} rename module = lem_string
+ 
+ open import Bool Basic_classes List
+ open import {ocaml} `Xstring`
+@@ -24,11 +24,13 @@
+ declare hol      target_rep type char = `char`
+ declare isabelle target_rep type char = `char`
+ declare coq      target_rep type char = `ascii`
++declare pvs      target_rep type char = `char`
+ 
+ declare ocaml    target_rep type string = `string`
+ declare hol      target_rep type string = `string`
+ declare isabelle target_rep type string = `string`
+ declare coq      target_rep type string = `string`
++declare pvs      target_rep type string = `string`
+ 
+ assert char_simple_0: not (#'0' = ((#'1'):char))
+ assert char_simple_1: not (#'X' = #'Y') 
+@@ -52,6 +54,7 @@
+ declare hol      target_rep function toCharList = `EXPLODE`
+ declare isabelle target_rep function toCharList s = ``s
+ declare coq      target_rep function toCharList = `string_to_char_list` (* TODO: check *)
++declare pvs      target_rep function toCharList = `finseq2list`
+ 
+ assert toCharList_0 : (toCharList "Hello" = [#'H'; #'e'; #'l'; #'l'; #'o'])
+ assert toCharList_1 : (toCharList "H\nA" = [#'H'; #'\n'; #'A'])
+@@ -61,6 +64,7 @@
+ declare hol      target_rep function toString = `IMPLODE`
+ declare isabelle target_rep function toString s = ``s
+ declare coq      target_rep function toString = `string_from_char_list` (* TODO: check *)
++declare pvs      target_rep function toString = `list2finseq`
+ 
+ assert toString_0 : (toString [#'H'; #'e'; #'l'; #'l'; #'o'] = "Hello")
+ assert toString_1 : (toString [#'H'; #'\n'; #'A'] = "H\nA")
+@@ -76,6 +80,7 @@
+ declare isabelle target_rep function makeString = `List.replicate`
+ declare hol      target_rep function makeString = `REPLICATE`
+ declare coq      target_rep function makeString = `string_make_string`
++declare pvs      target_rep function makeString = `make_string`
+ 
+ assert makeString_0: (makeString 0 #'a' = "")
+ assert makeString_1: (makeString 5 #'a' = "aaaaa")
+@@ -90,6 +95,7 @@
+ declare ocaml    target_rep function stringLength = `String.length`
+ declare isabelle target_rep function stringLength = `List.length`
+ declare coq      target_rep function stringLength = `String.length` (* TODO: check *)
++declare pvs      target_rep function stringLength = `length`
+ 
+ assert stringLength_0: (stringLength "" = 0)
+ assert stringLength_1: (stringLength "abc" = 3)
+@@ -105,6 +111,7 @@
+ declare hol      target_rep function stringAppend = `STRCAT`
+ declare isabelle target_rep function stringAppend = infix `@`
+ declare coq      target_rep function stringAppend = `String.append`
++declare pvs      target_rep function stringAppend = `str_concat`
+ 
+ assert stringAppend_0 : ("Hello" ^ " " ^ "World!" = "Hello World!")
+ 
+diff -Naur ../lem/library/transform.lem ../lem_ext/library/transform.lem
+--- ../lem/library/transform.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/transform.lem	2019-03-28 21:35:01.304416681 -0400
+@@ -104,16 +104,16 @@
+   | Inr of 'b
+ 
+ val isl : forall 'a 'b. sum 'a 'b -> bool
+-let lem_transform {hol;ocaml;coq;isabelle} isl s = match s with Inl _ -> true | Inr _ -> false end
++let lem_transform {hol;ocaml;coq;isabelle;pvs} isl s = match s with Inl _ -> true | Inr _ -> false end
+ 
+ val isr : forall 'a 'b. sum 'a 'b -> bool
+-let lem_transform {hol;ocaml;coq;isabelle} isr s = match s with Inl _ -> false | Inr _ -> true end
++let lem_transform {hol;ocaml;coq;isabelle;pvs} isr s = match s with Inl _ -> false | Inr _ -> true end
+ 
+ val outl : forall 'a 'b. sum 'a 'b -> 'a
+-let lem_transform {hol;ocaml;coq;isabelle} outl s = match s with Inl a -> a end
++let lem_transform {hol;ocaml;coq;isabelle;pvs} outl s = match s with Inl a -> a end
+ 
+ val outr : forall 'a 'b. sum 'a 'b -> 'b
+-let lem_transform {hol;ocaml;coq;isabelle} outr s = match s with Inr b -> b end
++let lem_transform {hol;ocaml;coq;isabelle;pvs} outr s = match s with Inr b -> b end
+   
+ val string_of_num : num -> string
+ let lem_transform {ocaml} string_of_num = Ocaml.Nat_num.string_of_num
+diff -Naur ../lem/library/tuple.lem ../lem_ext/library/tuple.lem
+--- ../lem/library/tuple.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/tuple.lem	2019-03-28 21:35:01.304416681 -0400
+@@ -4,7 +4,7 @@
+ 
+ (* The type for tuples (pairs) is hard-coded, so here only a few functions are used *)
+ 
+-declare {isabelle;hol;ocaml;coq} rename module = lem_tuple 
++declare {isabelle;hol;ocaml;coq;pvs} rename module = lem_tuple 
+ 
+ open import Bool Basic_classes
+ 
+@@ -19,6 +19,7 @@
+ declare ocaml    target_rep function fst = `fst`
+ declare isabelle target_rep function fst = `fst`
+ declare coq      target_rep function fst = (`@` `fst` `_` `_`)
++declare pvs      target_rep function fst = `proj_1`
+ 
+ assert fst_1 : (fst (true, false) = true) 
+ assert fst_2 : (fst (false, true) = false)
+@@ -34,6 +35,7 @@
+ declare ocaml    target_rep function snd = `snd`
+ declare isabelle target_rep function snd = `snd`
+ declare coq      target_rep function snd = (`@` `snd` `_` `_`)
++declare pvs      target_rep function snd = `proj_2`
+ 
+ lemma fst_snd: (forall v. v = (fst v, snd v))
+ 
+@@ -52,6 +54,7 @@
+ declare isabelle target_rep function curry = `curry`
+ declare ocaml    target_rep function curry = `Lem.curry`
+ declare coq      target_rep function curry = `prod_curry`
++declare pvs      target_rep function curry = `curry`
+ 
+ assert curry_1 : (curry (fun (x,y) -> x && y) true false = false)
+ 
+@@ -66,6 +69,7 @@
+ declare isabelle target_rep function uncurry = `case_prod`
+ declare ocaml    target_rep function uncurry = `Lem.uncurry`
+ declare coq      target_rep function uncurry = `prod_uncurry`
++declare pvs      target_rep function uncurry = `uncurry`
+ 
+ lemma curry_uncurry: (forall f xy. uncurry (curry f) xy = f xy)
+ lemma uncurry_curry: (forall f x y. curry (uncurry f) x y = f x y)
+@@ -80,7 +84,7 @@
+ val swap : forall 'a 'b. ('a * 'b) -> ('b * 'a) 
+ let swap (v1, v2) = (v2, v1)
+ 
+-let inline {isabelle; coq} swap = (fun (v1, v2) -> (v2, v1))
++let inline {isabelle; coq; pvs} swap = (fun (v1, v2) -> (v2, v1))
+ declare hol      target_rep function swap = `SWAP`
+ declare ocaml    target_rep function swap = `Lem.pair_swap`
+ 
+diff -Naur ../lem/library/word.lem ../lem_ext/library/word.lem
+--- ../lem/library/word.lem	2019-03-28 21:48:36.868668668 -0400
++++ ../lem_ext/library/word.lem	2019-03-28 21:52:08.385131350 -0400
+@@ -2,13 +2,13 @@
+ (* A generic library for machine words.                                       *)
+ (******************************************************************************)
+ 
+-declare {isabelle;coq;hol;ocaml} rename module = Lem_word
++declare {isabelle;coq;hol;ocaml;pvs} rename module = Lem_word
+ 
+ open import Bool Maybe Num Basic_classes List
+ 
+ open import {isabelle} `HOL-Word.Word`
+ open import {hol} `wordsTheory` `wordsLib`
+-
++open import {pvs} `word`
+ 
+ (* ========================================================================== *)
+ (* Define general purpose word, i.e. sequences of bits of arbitrary length    *)
+@@ -522,6 +522,7 @@
+ declare hol      target_rep function int32Lnot w = (`~` w)
+ declare isabelle target_rep function int32Lnot w = (`NOT` w)
+ declare coq      target_rep function int32Lnot w = w (* XXX: fix *)
++declare pvs      target_rep function int32Lnot = `word_not`
+ 
+ instance (WordNot int32) 
+   let lnot = int32Lnot
+@@ -533,6 +534,7 @@
+ declare hol      target_rep function int32Lor = `word_or`
+ declare isabelle target_rep function int32Lor = infix `OR`
+ declare coq      target_rep function int32Lor q w = w (* XXX: fix *)
++declare pvs      target_rep function int32Lor = `word_or`
+ 
+ instance (WordOr int32) 
+   let (lor) = int32Lor
+@@ -543,6 +545,7 @@
+ declare hol      target_rep function int32Lxor = `word_xor`
+ declare isabelle target_rep function int32Lxor = infix `XOR`
+ declare coq      target_rep function int32Lxor q w = w (* XXX: fix *)
++declare pvs      target_rep function int32Lxor = `word_xor`
+ 
+ instance ( WordXor int32) 
+   let (lxor) = int32Lxor
+@@ -553,6 +556,7 @@
+ declare hol      target_rep function int32Land = `word_and`
+ declare isabelle target_rep function int32Land = infix `AND`
+ declare coq      target_rep function int32Land q w = w (* XXX: fix *)
++declare pvs      target_rep function int32Land = `word_and`
+ 
+ instance ( WordAnd int32) 
+   let (land) = int32Land
+@@ -563,6 +567,7 @@
+ declare hol      target_rep function int32Lsl = `word_lsl`
+ declare isabelle target_rep function int32Lsl = infix `<<`
+ declare coq      target_rep function int32Lsl q w = q (* XXX: fix *)
++declare pvs      target_rep function int32Lsl = `word_lsl`
+ 
+ instance  (WordLsl int32) 
+   let (lsl) = int32Lsl
+@@ -573,6 +578,7 @@
+ declare hol      target_rep function int32Lsr = `word_lsr`
+ declare isabelle target_rep function int32Lsr = infix `>>`
+ declare coq      target_rep function int32Lsr q w = q (* XXX: fix *)
++declare pvs      target_rep function int32Lsr = `word_lsr`
+ 
+ instance  (WordLsr int32) 
+   let (lsr) = int32Lsr
+@@ -584,6 +590,7 @@
+ declare hol      target_rep function int32Asr = `word_asr`
+ declare isabelle target_rep function int32Asr = infix `>>>`
+ declare coq      target_rep function int32Asr q w = q (* XXX: fix *)
++declare pvs      target_rep function int32Asr = `word_asr`
+ 
+ instance  (WordAsr int32) 
+   let (asr) = int32Asr
+@@ -626,6 +633,7 @@
+ declare hol      target_rep function int64Lnot w = (`~` w)
+ declare isabelle target_rep function int64Lnot w = (`NOT` w)
+ declare coq      target_rep function int64Lnot w = w (* XXX: fix *)
++declare pvs      target_rep function int64Lnot = `word_not`
+ 
+ instance ( WordNot int64) 
+   let lnot = int64Lnot
+@@ -636,6 +644,7 @@
+ declare hol      target_rep function int64Lor = `word_or`
+ declare isabelle target_rep function int64Lor = infix `OR`
+ declare coq      target_rep function int64Lor q w = w (* XXX: fix *)
++declare pvs      target_rep function int64Lor = `word_or`
+ 
+ instance (WordOr int64) 
+   let (lor) = int64Lor
+@@ -646,6 +655,7 @@
+ declare hol      target_rep function int64Lxor = `word_xor`
+ declare isabelle target_rep function int64Lxor = infix `XOR`
+ declare coq      target_rep function int64Lxor q w = w (* XXX: fix *)
++declare pvs      target_rep function int64Lxor = `word_xor`
+ 
+ instance (WordXor int64) 
+   let (lxor) = int64Lxor
+@@ -656,6 +666,7 @@
+ declare hol      target_rep function int64Land = `word_and`
+ declare isabelle target_rep function int64Land = infix `AND`
+ declare coq      target_rep function int64Land q w = w (* XXX: fix *)
++declare pvs      target_rep function int64Land = `word_and`
+ 
+ instance (WordAnd int64) 
+   let (land) = int64Land
+@@ -666,6 +677,7 @@
+ declare hol      target_rep function int64Lsl = `word_lsl`
+ declare isabelle target_rep function int64Lsl = infix `<<`
+ declare coq      target_rep function int64Lsl q w = q (* XXX: fix *)
++declare pvs      target_rep function int64Lsl = `word_lsl`
+ 
+ instance (WordLsl int64) 
+   let (lsl) = int64Lsl
+@@ -676,6 +688,7 @@
+ declare hol      target_rep function int64Lsr = `word_lsr`
+ declare isabelle target_rep function int64Lsr = infix `>>`
+ declare coq      target_rep function int64Lsr q w = q (* XXX: fix *)
++declare pvs      target_rep function int64Lsr = `word_lsr`
+ 
+ instance (WordLsr int64) 
+   let (lsr) = int64Lsr
+@@ -686,6 +699,7 @@
+ declare hol      target_rep function int64Asr = `word_asr`
+ declare isabelle target_rep function int64Asr = infix `>>>`
+ declare coq      target_rep function int64Asr q w = q (* XXX: fix *)
++declare pvs      target_rep function int64Asr = `word_asr`
+ 
+ instance  (WordAsr int64) 
+   let (asr) = int64Asr
